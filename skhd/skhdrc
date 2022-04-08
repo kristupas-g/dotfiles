@@ -1,0 +1,36 @@
+# Navigation
+alt - h : yabai -m window --focus west
+alt - j : yabai -m window --focus south
+alt - k : yabai -m window --focus north
+alt - l : yabai -m window --focus east
+
+# Moving windows
+cmd + ctrl - h : yabai -m window --warp west
+cmd + ctrl - j : yabai -m window --warp south
+cmd + ctrl - k : yabai -m window --warp north
+cmd + ctrl - l : yabai -m window --warp east
+
+# Move focus container to workspace
+ctrl + tab - h : yabai -m window --space 1
+ctrl + tab - j : yabai -m window --space 2
+ctrl + tab - k : yabai -m window --space 3
+ltrl + tab - l : yabai -m window --space 4
+
+# Resize windows
+alt + shift - h : \
+    yabai -m window --resize left:-100:0 ; \
+    yabai -m window --resize right:-100:0
+
+alt + shift - j : \
+    yabai -m window --resize bottom:0:100 ; \
+    yabai -m window --resize top:0:100
+
+alt + shift - k : \
+    yabai -m window --resize top:0:-100 ; \
+    yabai -m window --resize bottom:0:-100
+
+alt + shift - l : \
+    yabai -m window --resiz right:100:0 ; \
+    yabai -m window --resize left:100:0
+
+
