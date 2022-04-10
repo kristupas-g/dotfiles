@@ -1,8 +1,9 @@
 syntax enable                           " Enables syntax highlighing
 
 set termguicolors
-colorscheme tokyonight
+colorscheme gruvbox-material
 let g:tokyonight_style = "storm"
+let g:everforest_background = 'soft'
 
 filetype plugin indent on
 set hidden                              " Required to keep multiple buffers open multiple buffers
@@ -30,13 +31,17 @@ set timeoutlen=500                      " By default timeoutlen is 1000 ms
 set clipboard=unnamedplus               " Copy paste between vim and everything else 
 set scrolloff=8                         " Keep cursor from going too low
 set nofixendofline
+set fileformats=mac,unix,dos
 
 
 let g:nvim_tree_respect_buf_cwd = 1
 
-" Highlights what I Yank
 augroup highlight_yank                  
     autocmd!
     au TextYankPost * silent! lua vim.highlight.on_yank{higroup="IncSearch", timeout= 200}
 augroup END
+
+
+let g:vimwiki_list = [{'path': '~/notes/',
+                      \ 'syntax': 'markdown', 'ext': '.md'}]
 
