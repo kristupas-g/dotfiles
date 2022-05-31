@@ -8,14 +8,14 @@ require("packer").startup(function(use)
 		"numToStr/Comment.nvim",
 		config = function()
 			require("kristupasgaidys.comment")
-		end
+		end,
 	})
 
 	use({
 		"windwp/nvim-autopairs",
 		config = function()
 			require("nvim-autopairs").setup({})
-		end
+		end,
 	})
 
 	use({
@@ -27,51 +27,51 @@ require("packer").startup(function(use)
 
 	use({
 		"akinsho/bufferline.nvim",
-    requires = 'kyazdani42/nvim-web-devicons',
+		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.bufferline")
-		end
+		end,
 	})
 
-	use{
-    {
-      "nvim-telescope/telescope-fzf-native.nvim",
-      run = "make",
-    },
+	use({
+		{
+			"nvim-telescope/telescope-fzf-native.nvim",
+			run = "make",
+		},
 		"nvim-telescope/telescope.nvim",
 		requires = "nvim-lua/plenary.nvim",
 		config = function()
 			require("kristupasgaidys.telescope")
-		end
-	}
+		end,
+	})
 
 	use({
 		"kyazdani42/nvim-tree.lua",
-    requires = 'kyazdani42/nvim-web-devicons',
+		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.nvim-tree")
-		end
+		end,
 	})
 
 	use({
 		"folke/trouble.nvim",
-    requires = "kyazdani42/nvim-web-devicons",
+		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.trouble")
 		end,
 	})
 
-  use {
-      "williamboman/nvim-lsp-installer",
-      {
-          "neovim/nvim-lspconfig",
-      		requires = "jose-elias-alvarez/nvim-lsp-ts-utils",
-          config = function()
-            require("kristupasgaidys.lsp-installer")
-            require("kristupasgaidys.lspconfig")
-          end,
-      }
-  }
+	use({
+		"williamboman/nvim-lsp-installer",
+		{
+			"neovim/nvim-lspconfig",
+			requires = "jose-elias-alvarez/nvim-lsp-ts-utils",
+			config = function()
+				require("kristupasgaidys.lsp-installer")
+				require("kristupasgaidys.lspconfig")
+			end,
+		},
+	})
 
 	use({
 		"nvim-treesitter/nvim-treesitter",
@@ -82,7 +82,7 @@ require("packer").startup(function(use)
 		},
 		config = function()
 			require("kristupasgaidys.treesitter")
-		end
+		end,
 	})
 
 	use({
@@ -102,7 +102,7 @@ require("packer").startup(function(use)
 		},
 		config = function()
 			require("kristupasgaidys.cmp")
-		end
+		end,
 	})
 
 	use("prettier/vim-prettier")

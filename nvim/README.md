@@ -1,12 +1,11 @@
 My personal NVIM config
 
-- Format whole thing
-- Which key
-- Fix setups
 - Language servers
-- Dashboard
-- Orgmode
+- Fix setups
 - Git (worktrees, merge conflicts, diffview, neogit)
+- Which key
+- Orgmode
+- Dashboard
 - Cheatsheet
 - Dap mode
 - Scratch buffer

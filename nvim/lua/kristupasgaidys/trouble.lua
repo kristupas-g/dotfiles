@@ -1,4 +1,4 @@
-require("trouble").setup {
-  position = "bottom",
-  width = 80,
-}
+require("trouble").setup({
+	position = "bottom",
+	width = 80,
+})
