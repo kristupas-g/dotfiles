@@ -1,7 +1,7 @@
 local capabilities = require("cmp_nvim_lsp").update_capabilities(vim.lsp.protocol.make_client_capabilities())
 
 require("lspconfig").jsonls.setup({
-	on_attach = lsp_base_bindings,
+	on_attach = Lsp_base_bindings,
 	capabilities = capabilities,
 	settings = {
 		json = {

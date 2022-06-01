@@ -65,7 +65,7 @@ require("packer").startup(function(use)
 		"williamboman/nvim-lsp-installer",
 		{
 			"neovim/nvim-lspconfig",
-			requires = "jose-elias-alvarez/nvim-lsp-ts-utils",
+			requires = { "jose-elias-alvarez/nvim-lsp-ts-utils", "nvim-lua/plenary.nvim" },
 			config = function()
 				require("kristupasgaidys.lsp-installer")
 				require("kristupasgaidys.lspconfig")
@@ -88,6 +88,38 @@ require("packer").startup(function(use)
 	use({
 		"L3MON4D3/LuaSnip",
 		requires = "saadparwaiz1/cmp_luasnip",
+		disable = true,
+	})
+
+	use({
+		"TimUntersberger/neogit",
+		requires = {
+			"nvim-lua/plenary.nvim",
+			"sindrets/diffview.nvim",
+		},
+		config = function()
+			require("kristupasgaidys.neogit")
+		end,
+		disable = true,
+	})
+
+	use({
+		"akinsho/git-conflict.nvim",
+		config = function()
+			require("git-conflict").setup()
+		end,
+		disable = true,
+		-- TODO make an autocommand for git conflict stuff
+	})
+
+	use({
+		"ggandor /leap.nvim",
+		disable = true,
+	})
+
+	use({
+		"folke/which-key.nvim",
+		config = function() end,
 		disable = true,
 	})
 

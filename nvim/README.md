@@ -1,12 +1,9 @@
-My personal NVIM config
-
-- Language servers
 - Fix setups
+- Fix autocommands maybe 
 - Git (worktrees, merge conflicts, diffview, neogit)
 - Which key
-- Orgmode
-- Dashboard
-- Cheatsheet
 - Dap mode
-- Scratch buffer
+- Basic snippets
+- Orgmode
+- Lazy loading
 - Tmux integration
