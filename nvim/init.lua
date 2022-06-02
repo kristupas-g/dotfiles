@@ -34,10 +34,10 @@ require("packer").startup(function(use)
 	})
 
 	use({
-		{
-			"nvim-telescope/telescope-fzf-native.nvim",
-			run = "make",
-		},
+		"nvim-telescope/telescope-fzf-native.nvim",
+		run = "make",
+	})
+	use({
 		"nvim-telescope/telescope.nvim",
 		requires = "nvim-lua/plenary.nvim",
 		config = function()
