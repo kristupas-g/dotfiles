@@ -41,7 +41,7 @@ require("packer").startup(function(use)
 		"nvim-telescope/telescope.nvim",
 		requires = "nvim-lua/plenary.nvim",
 		config = function()
-			require("kristupasgaidys.telescope")
+			require("kristupasgaidys.tele_scope")
 		end,
 	})
 

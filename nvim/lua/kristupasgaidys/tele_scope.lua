@@ -10,7 +10,9 @@ telescope.setup({
 			},
 		},
 		layout_strategy = "vertical",
-		path_display = "tail",
+		path_display = function(opts, path)
+			return require("telescope.utils").path_smart(path)
+		end,
 	},
 	pickers = {
 		find_files = {
@@ -21,22 +23,11 @@ telescope.setup({
 		},
 		lsp_references = {
 			initial_mode = "normal",
-			on_complete = {
-				function()
-					vim.cmd("stopinsert")
-				end,
-			},
-			theme = "cursor",
 			previewer = false,
 			prompt_prefix = "🔍  ",
 		},
 		lsp_implementations = {
 			initial_mode = "normal",
-			on_complete = {
-				function()
-					vim.cmd("stopinsert")
-				end,
-			},
 			theme = "cursor",
 			previewer = false,
 			prompt_prefix = "🔍  ",
