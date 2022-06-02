@@ -2,7 +2,7 @@
 - Fix autocommands maybe 
 - Git (worktrees, merge conflicts, diffview, neogit)
 - Dap mode
-- Which key
+- Which key (tree hotkeys)
 - Orgmode
 - Lazy loading
 - Basic snippets
