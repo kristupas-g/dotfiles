@@ -11,15 +11,7 @@ require("bufferline").setup({
 		end,
 		show_buffer_close_icons = false,
 		show_close_icon = false,
-		offsets = {
-			{
-				filetype = "nerdtree",
-				text = "  File Explorer",
-				highlight = "Directory",
-				text_align = "left",
-			},
-		},
-
+		offsets = { { filetype = "NvimTree", text = "File tree", text_align = "center" } },
 		modified_icon = " ",
 		separator_style = { "", "" },
 	},

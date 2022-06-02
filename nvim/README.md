@@ -1,9 +1,9 @@
 - Fix setups
 - Fix autocommands maybe 
 - Git (worktrees, merge conflicts, diffview, neogit)
-- Which key
 - Dap mode
-- Basic snippets
+- Which key
 - Orgmode
 - Lazy loading
+- Basic snippets
 - Tmux integration

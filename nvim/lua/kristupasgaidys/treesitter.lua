@@ -14,9 +14,11 @@ require("nvim-treesitter.configs").setup({
 		"rust",
 		"typescript",
 		"yaml",
+		"bash",
+		"comment",
+		"java",
 	},
 	sync_install = false,
-	ignore_install = { "" },
 	highlight = {
 		enable = true,
 		additional_vim_regex_highlighting = true,
@@ -25,12 +27,10 @@ require("nvim-treesitter.configs").setup({
 	rainbow = {
 		enable = true,
 		extended_mode = true,
-		max_file_lines = 1000,
-		colors = { "#F2CDCD", "#DDB6F2", "#E8A2AF", "#F8BD96", "#FAE3B0", "#ABE9B3", "#96CDFB" }, -- table of hex strings
+		max_file_lines = nil,
 	},
 	context_commentstring = {
 		enable = true,
 	},
-	indent = { enable = true, disable = { "yaml" } },
 	autotag = { enable = true },
 })
