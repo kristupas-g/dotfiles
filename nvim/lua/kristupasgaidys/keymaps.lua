@@ -12,6 +12,8 @@ normal("noh", ":noh<cr>")
 normal("<leader>w", "<C-w>")
 
 normal("<leader><leader>", require("telescope.builtin").find_files)
+normal("<leader>h", require("telescope.builtin").help_tags)
+
 normal("<leader>ft", ":NvimTreeToggle<cr>")
 
 -- Bufferline keybindings
@@ -28,12 +30,24 @@ Lsp_base_bindings = function(client, bufnr)
 
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "gd", "<cmd>lua vim.lsp.buf.definition()<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ch", "<cmd>lua vim.lsp.buf.hover()<CR>", opts)
-	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ci", "<cmd>lua vim.lsp.buf.implementation()<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cs", "<cmd>lua vim.lsp.buf.signature_help()<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ct", "<cmd>lua vim.lsp.buf.type_definition()<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cR", "<cmd>lua vim.lsp.buf.rename()<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ca", "<cmd>lua vim.lsp.buf.code_action()<CR>", opts)
-	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cr", "<cmd>lua vim.lsp.buf.references()<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cE", "<cmd>Trouble<CR>", opts)
 	vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cf", '<cmd>lua require("telescope.builtin").live_grep()<CR>', opts)
+	vim.api.nvim_buf_set_keymap(
+		bufnr,
+		"n",
+		"<leader>cr",
+		'<cmd>lua require("telescope.builtin").lsp_references()<CR>, ',
+		opts
+	)
+	vim.api.nvim_buf_set_keymap(
+		bufnr,
+		"n",
+		"<leader>ci",
+		'<cmd>lua require("telescope.builtin").lsp_implementations()<CR>',
+		opts
+	)
 end
