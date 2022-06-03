@@ -107,7 +107,6 @@ require("packer").startup(function(use)
 		config = function()
 			require("kristupasgaidys.git-conflict")
 		end,
-		-- TODO make an autocommand for git conflict stuff
 	})
 
 	use({

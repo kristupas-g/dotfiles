@@ -5,7 +5,6 @@ end
 vim.cmd('let g:mapleader = "\\<Space>"') -- TODO DELETE AND FIX
 normal("<leader>1", ':lua print("hello")<cr>')
 
--- Vim bindings
 vim.keymap.set("i", "jk", "<esc>")
 normal("<leader>fs", ":update<cr>")
 normal("noh", ":noh<cr>")
@@ -16,11 +15,19 @@ normal("<leader>h", require("telescope.builtin").help_tags)
 
 normal("<leader>ft", ":NvimTreeToggle<cr>")
 
+-- Git
 normal("<leader>gg", require("neogit").open)
 normal("<leader>gd", ":DiffviewOpen<cr>")
 normal("<leader>gh", ":DiffviewFileHistory<cr>")
-normal("<leader>gs", require("telescope").extensions.git_worktree.git_worktrees)
+normal("<leader>gt", require("telescope").extensions.git_worktree.git_worktrees)
 normal("<leader>gc", require("telescope").extensions.git_worktree.create_git_worktree)
+-- Git conflict
+normal("<leader>co", "<Plug>(git-conflict-ours)")
+normal("<leader>ct", "<Plug>(git-conflict-theirs)")
+normal("<leader>cb", "<Plug>(git-conflict-both)")
+normal("<leader>c0", "<Plug>(git-conflict-none)")
+normal("<leader>cn", "<Plug>(git-conflict-prev-conflict)")
+normal("<leader>cp", "<Plug>(git-conflict-next-conflict)")
 
 -- Bufferline keybindings
 normal("<leader>bp", ":BufferLinePick<cr>")

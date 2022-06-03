@@ -1,1 +1,1 @@
-require("git-conflict").setup()
+require("git-conflict").setup({ default_mappings = false })
