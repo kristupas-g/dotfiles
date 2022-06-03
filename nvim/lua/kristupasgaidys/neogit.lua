@@ -3,7 +3,7 @@ require("neogit").setup({
 	disable_hint = false,
 	disable_commit_confirmation = true,
 	commit_popup = {
-		kind = "split",
+		kind = "floating",
 	},
 	kind = "replace",
 	signs = {

@@ -16,8 +16,11 @@ normal("<leader>h", require("telescope.builtin").help_tags)
 
 normal("<leader>ft", ":NvimTreeToggle<cr>")
 
-normal("<leader>gg", ":Neogit<cr>")
+normal("<leader>gg", require("neogit").open)
 normal("<leader>gd", ":DiffviewOpen<cr>")
+normal("<leader>gh", ":DiffviewFileHistory<cr>")
+normal("<leader>gs", require("telescope").extensions.git_worktree.git_worktrees)
+normal("<leader>gc", require("telescope").extensions.git_worktree.create_git_worktree)
 
 -- Bufferline keybindings
 normal("<leader>bp", ":BufferLinePick<cr>")

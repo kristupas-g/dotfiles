@@ -111,6 +111,14 @@ require("packer").startup(function(use)
 	})
 
 	use({
+		"ThePrimeagen/git-worktree.nvim",
+		requires = { "nvim-lua/plenary.nvim", "nvim-telescope/telescope.nvim" },
+		config = function()
+			require("kristupasgaidys.worktree")
+		end,
+	})
+
+	use({
 		"ggandor/leap.nvim",
 	})
 
