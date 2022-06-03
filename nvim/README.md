@@ -1,9 +1,8 @@
-- Fix setups
-- Fix autocommands maybe 
-- Git (worktrees, merge conflicts, diffview, neogit)
+- Setup leap
 - Dap mode
+- Fix autocommands maybe 
 - Which key (tree hotkeys)
 - Orgmode
-- Lazy loading
 - Basic snippets
+- Lazy loading
 - Tmux integration
