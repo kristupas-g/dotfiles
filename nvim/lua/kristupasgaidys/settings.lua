@@ -4,7 +4,7 @@ local global = vim.g
 global.colors_name = "gruvbox-material"
 global.mapleader = "\\<Space>" -- TODO Fix later not working
 -- global.do_filetype_lua = 1 -- TODO figure out if stable
---TODO fix this line
+--TODO this line
 vim.cmd("filetype plugin indent on") -- Investigate filetype.lua
 
 set.termguicolors = true

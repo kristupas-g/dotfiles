@@ -88,7 +88,6 @@ require("packer").startup(function(use)
 	use({
 		"L3MON4D3/LuaSnip",
 		requires = "saadparwaiz1/cmp_luasnip",
-		disable = true,
 	})
 
 	use({
@@ -98,29 +97,26 @@ require("packer").startup(function(use)
 			"sindrets/diffview.nvim",
 		},
 		config = function()
+			require("kristupasgaidys.diffview")
 			require("kristupasgaidys.neogit")
 		end,
-		disable = true,
 	})
 
 	use({
 		"akinsho/git-conflict.nvim",
 		config = function()
-			require("git-conflict").setup()
+			require("kristupasgaidys.git-conflict")
 		end,
-		disable = true,
 		-- TODO make an autocommand for git conflict stuff
 	})
 
 	use({
-		"ggandor /leap.nvim",
-		disable = true,
+		"ggandor/leap.nvim",
 	})
 
 	use({
 		"folke/which-key.nvim",
 		config = function() end,
-		disable = true,
 	})
 
 	use({

@@ -8,8 +8,8 @@ cmp.setup({
 		end,
 	},
 	mapping = {
-		["<tab>"] = cmp.mapping(cmp.mapping.scroll_docs(-4), { "i", "c" }),
-		["<S-tab>"] = cmp.mapping(cmp.mapping.scroll_docs(4), { "i", "c" }),
+		["<C-j>"] = cmp.mapping(cmp.mapping.scroll_docs(-4), { "i", "c" }),
+		["<C-k>"] = cmp.mapping(cmp.mapping.scroll_docs(4), { "i", "c" }),
 		["<Down>"] = cmp.mapping(cmp.mapping.select_next_item(), { "i", "c" }),
 		["<Up>"] = cmp.mapping(cmp.mapping.select_prev_item(), { "i", "c" }),
 		["<esc>"] = cmp.mapping({
@@ -35,7 +35,6 @@ cmp.setup({
 		{ name = "path" },
 	}),
 })
-
 cmp.setup.cmdline(":", {
 	sources = {
 		{ name = "cmdline" },

@@ -16,6 +16,9 @@ normal("<leader>h", require("telescope.builtin").help_tags)
 
 normal("<leader>ft", ":NvimTreeToggle<cr>")
 
+normal("<leader>gg", ":Neogit<cr>")
+normal("<leader>gd", ":DiffviewOpen<cr>")
+
 -- Bufferline keybindings
 normal("<leader>bp", ":BufferLinePick<cr>")
 normal("<leader>bmj", ":BufferLineMovePrev<cr>")
