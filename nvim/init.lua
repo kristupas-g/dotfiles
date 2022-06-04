@@ -117,13 +117,13 @@ require("packer").startup(function(use)
 		end,
 	})
 
-	use({
-		"ggandor/leap.nvim",
-	})
+	use({ "ggandor/lightspeed.nvim" })
 
 	use({
 		"folke/which-key.nvim",
-		config = function() end,
+		config = function()
+			require("kristupasgaidys.which-key")
+		end,
 	})
 
 	use({ "mfussenegger/nvim-dap", disable = true })

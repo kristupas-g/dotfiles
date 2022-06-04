@@ -1,42 +1,42 @@
-local normal = function(keymap, command)
-	vim.keymap.set("n", keymap, command, { silent = true })
+local normal = function(keymap, command, label)
+	vim.keymap.set("n", keymap, command, { silent = true, desc = label })
 end
 
 vim.cmd('let g:mapleader = "\\<Space>"') -- TODO DELETE AND FIX
 normal("<leader>1", ':lua print("hello")<cr>')
 
 vim.keymap.set("i", "jk", "<esc>")
-normal("<leader>fs", ":update<cr>")
-normal("noh", ":noh<cr>")
-normal("<leader>w", "<C-w>")
+normal("<leader>fs", ":update<cr>", "Save file")
+normal("noh", ":noh<cr>", "Remove search highlight")
+normal("<leader>w", "<C-w>", "Windows")
 
-normal("<leader><leader>", require("telescope.builtin").find_files)
-normal("<leader>h", require("telescope.builtin").help_tags)
+normal("<leader><leader>", require("telescope.builtin").find_files, "Find files")
+normal("<leader>h", require("telescope.builtin").help_tags, "Help")
 
-normal("<leader>ft", ":NvimTreeToggle<cr>")
+normal("<leader>ft", ":NvimTreeToggle<cr>", "File tree")
 
 -- Git
-normal("<leader>gg", require("neogit").open)
-normal("<leader>gd", ":DiffviewOpen<cr>")
-normal("<leader>gh", ":DiffviewFileHistory<cr>")
-normal("<leader>gt", require("telescope").extensions.git_worktree.git_worktrees)
-normal("<leader>gc", require("telescope").extensions.git_worktree.create_git_worktree)
+normal("<leader>gg", require("neogit").open, "Git")
+normal("<leader>gd", ":DiffviewOpen<cr>", "Diff")
+normal("<leader>gh", ":DiffviewFileHistory<cr>", "Current file history")
+normal("<leader>gt", require("telescope").extensions.git_worktree.git_worktrees, "Switch worktree")
+normal("<leader>gc", require("telescope").extensions.git_worktree.create_git_worktree, "Create worktree")
 -- Git conflict
-normal("<leader>co", "<Plug>(git-conflict-ours)")
-normal("<leader>ct", "<Plug>(git-conflict-theirs)")
-normal("<leader>cb", "<Plug>(git-conflict-both)")
-normal("<leader>c0", "<Plug>(git-conflict-none)")
-normal("<leader>cn", "<Plug>(git-conflict-prev-conflict)")
-normal("<leader>cp", "<Plug>(git-conflict-next-conflict)")
+normal("<leader>go", "<Plug>(git-conflict-ours)", "Take ours")
+normal("<leader>gt", "<Plug>(git-conflict-theirs)", "Take theirs")
+normal("<leader>gb", "<Plug>(git-conflict-both)", "Take both")
+normal("<leader>g0", "<Plug>(git-conflict-none)", "Take none")
+normal("<leader>gn", "<Plug>(git-conflict-prev-conflict)", "Go to previous conflict")
+normal("<leader>gp", "<Plug>(git-conflict-next-conflict)", "Go to next conflict")
 
 -- Bufferline keybindings
-normal("<leader>bp", ":BufferLinePick<cr>")
-normal("<leader>bmj", ":BufferLineMovePrev<cr>")
-normal("<leader>bmk", ":BufferLineMoveNext<cr>")
-normal("<leader>bcr", ":BufferLineCloseRight<cr>")
-normal("<leader>bcl", ":BufferLineCloseLeft<cr>")
-normal("<leader>j", ":BufferLineCyclePrev<cr>")
-normal("<leader>k", ":BufferLineCycleNext<cr>")
+normal("<leader>bp", ":BufferLinePick<cr>", "Choose buffer")
+normal("<leader>bj", ":BufferLineMovePrev<cr>", "Move buffer left")
+normal("<leader>bk", ":BufferLineMoveNext<cr>", "Move buffer right")
+normal("<leader>bcr", ":BufferLineCloseRight<cr>", "Close all buffers to the right")
+normal("<leader>bcl", ":BufferLineCloseLeft<cr>", "Close all buffers to the left")
+normal("<leader>j", ":BufferLineCyclePrev<cr>", "Go to previous buffer")
+normal("<leader>k", ":BufferLineCycleNext<cr>", "Go to next buffer")
 
 Lsp_base_bindings = function(client, bufnr)
 	local opts = { noremap = true, silent = true }

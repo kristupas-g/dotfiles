@@ -1,8 +1,7 @@
-- Setup leap
-- Fix autocommands maybe 
 - Which key (tree hotkeys)
-- Lazy loading
 - Orgmode
+- Fix autocommands maybe 
+- Lazy loading
 - Basic snippets
 - Tmux integration
 - Dap mode wait for dap-buddy(eases da installation)
