@@ -126,6 +126,16 @@ require("packer").startup(function(use)
 		config = function() end,
 	})
 
+	use({ "mfussenegger/nvim-dap", disable = true })
+	use({
+		"rcarriga/nvim-dap-ui",
+		requires = { "mfussenegger/nvim-dap", "theHamsta/nvim-dap-virtual-text" },
+		config = function()
+			require("kristupasgaidys.dap-ui")
+		end,
+		disable = true,
+	})
+
 	use({
 		"hrsh7th/nvim-cmp",
 		requires = {
