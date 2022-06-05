@@ -34,5 +34,7 @@ set.scrolloff = 8 -- Keep cursor from going too low
 set.fileformats = { "unix", "dos" } -- Line endings
 set.swapfile = false
 set.modeline = false
+set.conceallevel = 2
+set.concealcursor = "nc"
 
 vim.cmd("hi! Normal ctermbg=NONE guibg=NONE") -- Transperent background KEEP at Bottom

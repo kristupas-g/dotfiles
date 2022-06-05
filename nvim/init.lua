@@ -137,6 +137,29 @@ require("packer").startup(function(use)
 	})
 
 	use({
+		"akinsho/org-bullets.nvim",
+		config = function()
+			require("org-bullets").setup()
+		end,
+	})
+	use({
+		"lukas-reineke/headlines.nvim",
+		config = function()
+			require("headlines").setup()
+		end,
+	})
+	use({
+		"nvim-orgmode/orgmode",
+		ft = { "org" },
+		requires = {
+			"nvim-treesitter/nvim-treesitter",
+		},
+		config = function()
+			require("kristupasgaidys.org")
+		end,
+	})
+
+	use({
 		"hrsh7th/nvim-cmp",
 		requires = {
 			"hrsh7th/cmp-buffer",
@@ -150,11 +173,13 @@ require("packer").startup(function(use)
 		end,
 	})
 
-	use("prettier/vim-prettier")
-	use("editorconfig/editorconfig-vim")
 	use({
-		"ckipp01/stylua-nvim",
-		run = "cargo install stylua",
+		"jose-elias-alvarez/null-ls.nvim",
+		requires = "nvim-lua/plenary.nvim",
+		config = function()
+			require("kristupasgaidys.null-ls")
+		end,
+		run = "cargo install stylua", -- run prettierd and eslint and editorconfig maybe
 	})
 end)
 

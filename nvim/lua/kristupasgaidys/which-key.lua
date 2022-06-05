@@ -12,7 +12,6 @@ require("which-key").setup({
 			g = false,
 		},
 	},
-	operators = { gc = "Comments" },
 	key_labels = {
 		["<cr>"] = "ENTER",
 	},

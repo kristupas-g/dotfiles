@@ -17,6 +17,7 @@ require("nvim-treesitter.configs").setup({
 		"bash",
 		"comment",
 		"java",
+		"org",
 	},
 	sync_install = false,
 	highlight = {
