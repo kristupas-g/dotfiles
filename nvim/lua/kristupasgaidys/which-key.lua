@@ -14,6 +14,11 @@ require("which-key").setup({
 	},
 	key_labels = {
 		["<cr>"] = "ENTER",
+		["<space>"] = "SPC",
+	},
+	icons = {
+		breadcrumb = "▶",
+		group = " ",
 	},
 	window = {
 		margin = { 1, 3, 2, 1 },

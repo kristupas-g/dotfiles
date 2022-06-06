@@ -1,13 +1,7 @@
 local normal = function(keymap, command, label)
-  -- local opts = { silent = true }
-  -- for k, v in ipairs(t2) do
-  -- 	table.insert(t1, v)
-  -- end
-  vim.keymap.set("n", keymap, command, { silent = true, desc = label })
+	local opts = { silent = true, desc = label }
+	vim.keymap.set("n", keymap, command, opts)
 end
-
-vim.cmd('let g:mapleader = "\\<Space>"') -- TODO DELETE AND FIX
-normal("<leader>1", ':lua print("hello")<cr>')
 
 vim.keymap.set("i", "jk", "<esc>")
 normal("<leader>fs", ":update<cr>", "Save file")
@@ -18,6 +12,9 @@ normal("<leader><leader>", require("telescope.builtin").find_files, "Find files"
 normal("<leader>h", require("telescope.builtin").help_tags, "Help")
 
 normal("<leader>ft", ":NvimTreeToggle<cr>", "File tree")
+
+normal("<leader>tt", ":TransparentToggle<cr>", "Toggle transperancy")
+normal("<leader>ti", ":IndentBlanklineToggle<cr>", "Toggle indent lines")
 
 -- Git
 normal("<leader>gg", require("neogit").open, "Git")
@@ -34,7 +31,7 @@ normal("<leader>gn", "<Plug>(git-conflict-prev-conflict)", "Go to previous confl
 normal("<leader>gp", "<Plug>(git-conflict-next-conflict)", "Go to next conflict")
 
 -- Bufferline keybindings
-normal("<leader>bp", ":BufferLinePick<cr>", "Choose buffer")
+normal("<leader>bb", ":BufferLinePick<cr>", "Choose buffer")
 normal("<leader>bj", ":BufferLineMovePrev<cr>", "Move buffer left")
 normal("<leader>bk", ":BufferLineMoveNext<cr>", "Move buffer right")
 normal("<leader>bcr", ":BufferLineCloseRight<cr>", "Close all buffers to the right")
@@ -43,28 +40,27 @@ normal("<leader>j", ":BufferLineCyclePrev<cr>", "Go to previous buffer")
 normal("<leader>k", ":BufferLineCycleNext<cr>", "Go to next buffer")
 
 Lsp_base_bindings = function(client, bufnr)
-  local opts = { noremap = true, silent = true }
-
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "gd", "<cmd>lua vim.lsp.buf.definition()<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ch", "<cmd>lua vim.lsp.buf.hover()<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cs", "<cmd>lua vim.lsp.buf.signature_help()<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ct", "<cmd>lua vim.lsp.buf.type_definition()<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cR", "<cmd>lua vim.lsp.buf.rename()<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>ca", "<cmd>lua vim.lsp.buf.code_action()<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cE", "<cmd>Trouble<CR>", opts)
-  vim.api.nvim_buf_set_keymap(bufnr, "n", "<leader>cf", '<cmd>lua require("telescope.builtin").live_grep()<CR>', opts)
-  vim.api.nvim_buf_set_keymap(
-    bufnr,
-    "n",
-    "<leader>cr",
-    '<cmd>lua require("telescope.builtin").lsp_references()<CR>, ',
-    opts
-  )
-  vim.api.nvim_buf_set_keymap(
-    bufnr,
-    "n",
-    "<leader>ci",
-    '<cmd>lua require("telescope.builtin").lsp_implementations()<CR>',
-    opts
-  )
+	local lsp_bind = function(keymap, command, desc)
+		local opts = { noremap = true, silent = true, buffer = bufnr, desc = desc }
+		vim.keymap.set("n", keymap, command, opts)
+	end
+	lsp_bind("gd", vim.lsp.buf.definition, "Go to definition")
+	lsp_bind("<leader>ch", vim.lsp.buf.hover, "Hover")
+	lsp_bind("<leader>cs", vim.lsp.buf.signature_help, "Signature help")
+	lsp_bind("<leader>ct", vim.lsp.buf.type_definition, "Type definition")
+	lsp_bind("<leader>cR", vim.lsp.buf.rename, "Rename symbol")
+	lsp_bind("<leader>ca", vim.lsp.buf.code_action, "Code action")
+	lsp_bind("<leader>cE", "<cmd>Trouble<CR>", "All errors")
+	lsp_bind("<leader>cf", require("telescope.builtin").live_grep, "Search code")
+	lsp_bind("<leader>cr", require("telescope.builtin").lsp_references, "Show references")
+	lsp_bind("<leader>ci", require("telescope.builtin").lsp_implementations, "Show implementations")
 end
+
+require("which-key").register({
+	f = { name = "File" },
+	g = { name = "Git" },
+	c = { name = "Code" },
+	t = { name = "Toggle" },
+	b = { name = "Buffer", c = { "Close" } },
+	o = { name = "Org", a = { "Agenda" }, c = { "Capture" } },
+}, { prefix = "<leader>" })

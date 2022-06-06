@@ -2,6 +2,12 @@ require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
 	use("sainnhe/gruvbox-material")
+	use({
+		"xiyaowong/nvim-transparent",
+		config = function()
+			require("kristupasgaidys.transparent")
+		end,
+	})
 
 	use("tpope/vim-surround")
 

@@ -2,12 +2,10 @@ local set = vim.opt
 local global = vim.g
 
 global.colors_name = "gruvbox-material"
-global.mapleader = "\\<Space>" -- TODO Fix later not working
--- global.do_filetype_lua = 1 -- TODO figure out if stable
---TODO this line
-vim.cmd("filetype plugin indent on") -- Investigate filetype.lua
+global.mapleader = " "
+global.filetype = "plugin indent on"
 
-set.termguicolors = true
+set.termguicolors = true -- Adds more colors
 set.hidden = true -- Required to keep multiple buffers open multiple buffers
 set.pumheight = 18 -- Maximum message height
 set.encoding = "utf-8" -- The encoding displayed
@@ -34,7 +32,5 @@ set.scrolloff = 8 -- Keep cursor from going too low
 set.fileformats = { "unix", "dos" } -- Line endings
 set.swapfile = false
 set.modeline = false
-set.conceallevel = 2
-set.concealcursor = "nc"
-
-vim.cmd("hi! Normal ctermbg=NONE guibg=NONE") -- Transperent background KEEP at Bottom
+set.conceallevel = 2 -- Required for org
+set.concealcursor = "nc" -- Required for org
