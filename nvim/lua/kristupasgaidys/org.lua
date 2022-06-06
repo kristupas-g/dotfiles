@@ -5,3 +5,5 @@ require("orgmode").setup({
 })
 
 require("orgmode").setup_ts_grammar()
+require("headlines").setup()
+require("org-bullets").setup()

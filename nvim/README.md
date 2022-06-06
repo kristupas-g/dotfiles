@@ -1,8 +1,8 @@
 - Which key (tree hotkeys)
 - Fix autocommands maybe
 - Lazy loading
+- Orgmode learn to use it
 - Basic snippets
 - Tmux integration
 - fix transperent background
-- Orgmode learn to use it
 - Dap mode wait for dap-buddy(eases da installation)

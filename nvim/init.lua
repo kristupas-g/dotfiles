@@ -2,7 +2,10 @@ require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
 	use("sainnhe/gruvbox-material")
+
 	use("tpope/vim-surround")
+
+	use({ "ggandor/lightspeed.nvim" })
 
 	use({
 		"numToStr/Comment.nvim",
@@ -65,7 +68,10 @@ require("packer").startup(function(use)
 		"williamboman/nvim-lsp-installer",
 		{
 			"neovim/nvim-lspconfig",
-			requires = { "jose-elias-alvarez/nvim-lsp-ts-utils", "nvim-lua/plenary.nvim" },
+			requires = {
+				"jose-elias-alvarez/nvim-lsp-ts-utils",
+				"nvim-lua/plenary.nvim",
+			},
 			config = function()
 				require("kristupasgaidys.lsp-installer")
 				require("kristupasgaidys.lspconfig")
@@ -111,13 +117,14 @@ require("packer").startup(function(use)
 
 	use({
 		"ThePrimeagen/git-worktree.nvim",
-		requires = { "nvim-lua/plenary.nvim", "nvim-telescope/telescope.nvim" },
+		requires = {
+			"nvim-lua/plenary.nvim",
+			"nvim-telescope/telescope.nvim",
+		},
 		config = function()
 			require("kristupasgaidys.worktree")
 		end,
 	})
-
-	use({ "ggandor/lightspeed.nvim" })
 
 	use({
 		"folke/which-key.nvim",
@@ -126,33 +133,13 @@ require("packer").startup(function(use)
 		end,
 	})
 
-	use({ "mfussenegger/nvim-dap", disable = true })
-	use({
-		"rcarriga/nvim-dap-ui",
-		requires = { "mfussenegger/nvim-dap", "theHamsta/nvim-dap-virtual-text" },
-		config = function()
-			require("kristupasgaidys.dap-ui")
-		end,
-		disable = true,
-	})
-
-	use({
-		"akinsho/org-bullets.nvim",
-		config = function()
-			require("org-bullets").setup()
-		end,
-	})
-	use({
-		"lukas-reineke/headlines.nvim",
-		config = function()
-			require("headlines").setup()
-		end,
-	})
 	use({
 		"nvim-orgmode/orgmode",
 		ft = { "org" },
 		requires = {
 			"nvim-treesitter/nvim-treesitter",
+			"lukas-reineke/headlines.nvim",
+			"akinsho/org-bullets.nvim",
 		},
 		config = function()
 			require("kristupasgaidys.org")
@@ -179,7 +166,7 @@ require("packer").startup(function(use)
 		config = function()
 			require("kristupasgaidys.null-ls")
 		end,
-		run = "cargo install stylua", -- run prettierd and eslint and editorconfig maybe
+		run = "cargo install stylua", --TODO run prettierd and eslint and editorconfig maybe
 	})
 end)
 
