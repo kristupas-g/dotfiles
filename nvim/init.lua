@@ -172,7 +172,7 @@ require("packer").startup(function(use)
 		config = function()
 			require("kristupasgaidys.null-ls")
 		end,
-		run = "cargo install stylua", --TODO run prettierd and eslint and editorconfig maybe
+		run = "cargo install stylua",
 	})
 end)
 

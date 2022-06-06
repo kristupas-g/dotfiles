@@ -1,5 +1,5 @@
-- Fix autocommands maybe
 - Lazy loading
 - Orgmode learn to use it
 - Basic snippets
+- add script to install all missing dependencies
 - Dap mode wait for dap-buddy(eases da installation)

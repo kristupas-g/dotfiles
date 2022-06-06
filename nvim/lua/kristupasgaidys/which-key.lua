@@ -1,4 +1,6 @@
-require("which-key").setup({
+local which_key = require("which-key")
+
+which_key.setup({
 	plugins = {
 		marks = false,
 		registers = false,
@@ -6,7 +8,7 @@ require("which-key").setup({
 			operators = false,
 			motions = false,
 			text_objects = false,
-			windows = true,
+			windows = false,
 			nav = false,
 			z = false,
 			g = false,
@@ -32,4 +34,28 @@ require("which-key").setup({
 	ignore_missing = false,
 	show_help = true,
 	triggers = "auto",
+})
+
+which_key.register({
+	["<leader>"] = {
+		w = {
+			name = "Window",
+			s = { "Split window" },
+			v = { "Split window vertically" },
+			w = { "Switch windows" },
+			q = { "Quit a window" },
+			T = { "Break out into a new tab" },
+			x = { "Swap current with next" },
+			["-"] = { "Decrease height" },
+			["+"] = { "Increase height" },
+			["<lt>"] = { "Decrease width" },
+			[">"] = { "Increase width" },
+			["|"] = { "Max out the width" },
+			["="] = { "Equally high and wide" },
+			h = { "Go to the left window" },
+			l = { "Go to the right window" },
+			k = { "Go to the up window" },
+			j = { "Go to the down window" },
+		},
+	},
 })
