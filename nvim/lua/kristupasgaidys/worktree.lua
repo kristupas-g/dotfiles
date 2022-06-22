@@ -1,5 +1,4 @@
-require("git-worktree").setup({
-	-- change_directory_command = <str> -- default: "cd",
-	-- update_on_change = <boolean> -- default: true,
-	-- update_on_change_command = <str> -- default: "e .",
-})
+require("git-worktree").setup({ })
+
+normal("<leader>gw", "lua require(\"telescope\").extensions.git_worktree.git_worktrees", "Switch worktree")
+normal("<leader>gc", "lua require(\"telescope\").extensions.git_worktree.create_git_worktree", "Create worktree")

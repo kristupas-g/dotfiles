@@ -12,6 +12,7 @@ alt - r : yabai -m space --rotate 90
 
 alt - t : open -a kitty
 alt - b : open -a Firefox
+alt - e : open -a Emacs
 
 alt + shift - k : \
     yabai -m window --resize top:0:-40 ; \

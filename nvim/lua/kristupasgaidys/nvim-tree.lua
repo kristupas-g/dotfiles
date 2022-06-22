@@ -38,3 +38,5 @@ require("nvim-tree").setup({
 		},
 	},
 })
+
+normal("<leader>ft", ":NvimTreeToggle<cr>", "File tree")

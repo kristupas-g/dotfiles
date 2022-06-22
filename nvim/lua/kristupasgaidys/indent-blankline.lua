@@ -7,3 +7,5 @@ require("indent_blankline").setup({
 	indent_level = 20,
 	max_indent_increase = 1,
 })
+
+normal("<leader>ti", ":IndentBlanklineToggle<cr>", "Toggle indent lines")

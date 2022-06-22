@@ -1,7 +1,11 @@
+require("kristupasgaidys.settings")
+require("kristupasgaidys.keymaps")
+
 require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
 	use("sainnhe/gruvbox-material")
+
 	use({
 		"xiyaowong/nvim-transparent",
 		config = function()
@@ -43,15 +47,20 @@ require("packer").startup(function(use)
 	})
 
 	use({
-		"nvim-telescope/telescope-fzf-native.nvim",
-		run = "make",
-	})
-	use({
 		"nvim-telescope/telescope.nvim",
 		requires = "nvim-lua/plenary.nvim",
 		config = function()
 			require("kristupasgaidys.tele_scope")
 		end,
+	})
+
+	use({
+		"nvim-telescope/telescope-fzf-native.nvim",
+		after = { "telescope.nvim" },
+		config = function()
+			require("telescope").load_extension("fzf")
+		end,
+		run = "make",
 	})
 
 	use({
@@ -64,6 +73,7 @@ require("packer").startup(function(use)
 
 	use({
 		"folke/trouble.nvim",
+		cmd = { "Trouble" },
 		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.trouble")
@@ -74,6 +84,7 @@ require("packer").startup(function(use)
 		"williamboman/nvim-lsp-installer",
 		{
 			"neovim/nvim-lspconfig",
+			cmd = { "LspInstall" },
 			requires = {
 				"jose-elias-alvarez/nvim-lsp-ts-utils",
 				"nvim-lua/plenary.nvim",
@@ -99,17 +110,22 @@ require("packer").startup(function(use)
 
 	use({
 		"L3MON4D3/LuaSnip",
+		after = { "nvim-lspconfig" },
 		requires = "saadparwaiz1/cmp_luasnip",
 	})
 
 	use({
-		"TimUntersberger/neogit",
-		requires = {
-			"nvim-lua/plenary.nvim",
-			"sindrets/diffview.nvim",
-		},
+		"sindrets/diffview.nvim",
+		cmd = { "DiffviewOpen" },
 		config = function()
 			require("kristupasgaidys.diffview")
+		end,
+	})
+
+	use({
+		"TimUntersberger/neogit",
+		requires = { "nvim-lua/plenary.nvim" },
+		config = function()
 			require("kristupasgaidys.neogit")
 		end,
 	})
@@ -127,8 +143,10 @@ require("packer").startup(function(use)
 			"nvim-lua/plenary.nvim",
 			"nvim-telescope/telescope.nvim",
 		},
+		after = { "telescope.nvim" },
 		config = function()
 			require("kristupasgaidys.worktree")
+			require("telescope").load_extension("git_worktree")
 		end,
 	})
 
@@ -168,13 +186,10 @@ require("packer").startup(function(use)
 
 	use({
 		"jose-elias-alvarez/null-ls.nvim",
+		after = { "nvim-lspconfig" },
 		requires = "nvim-lua/plenary.nvim",
 		config = function()
 			require("kristupasgaidys.null-ls")
 		end,
-		run = "cargo install stylua",
 	})
 end)
-
-require("kristupasgaidys.settings")
-require("kristupasgaidys.keymaps")

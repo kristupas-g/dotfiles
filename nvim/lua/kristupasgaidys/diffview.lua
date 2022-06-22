@@ -61,3 +61,6 @@ require("diffview").setup({
 		},
 	},
 })
+
+normal("<leader>gd", ":DiffviewOpen<cr>", "Diff")
+normal("<leader>gh", ":DiffviewFileHistory<cr>", "Current file history")

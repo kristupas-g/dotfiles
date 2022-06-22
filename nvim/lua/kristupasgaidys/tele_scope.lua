@@ -1,14 +1,10 @@
 local actions = require("telescope.actions")
 local telescope = require("telescope")
-telescope.load_extension("fzf")
-telescope.load_extension("git_worktree")
 
 telescope.setup({
 	defaults = {
 		mappings = {
-			i = {
-				["<esc>"] = actions.close,
-			},
+			i = { ["<esc>"] = actions.close },
 		},
 		layout_strategy = "vertical",
 		path_display = function(opts, path)
@@ -43,3 +39,6 @@ telescope.setup({
 		},
 	},
 })
+
+normal("<leader><leader>", require("telescope.builtin").find_files, "Find files")
+normal("<leader>h", require("telescope.builtin").help_tags, "Help")

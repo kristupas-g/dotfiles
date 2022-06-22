@@ -37,3 +37,5 @@ require("neogit").setup({
 		},
 	},
 })
+
+normal("<leader>gg", require("neogit").open, "Git")

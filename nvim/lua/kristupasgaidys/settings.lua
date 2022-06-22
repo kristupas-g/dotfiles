@@ -21,7 +21,6 @@ set.expandtab = true -- Converts tabs to spaces
 set.smartindent = true -- Makes indenting smart
 set.autoindent = true -- Good auto indent
 set.laststatus = 0 -- Always display the status line
-set.number = true -- Line numbers
 set.ignorecase = true -- Search isnt case sensitive
 set.background = "dark" -- Tell vim what the background color looks like
 set.showtabline = 0 -- Always show tabs

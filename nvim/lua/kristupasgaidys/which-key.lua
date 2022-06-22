@@ -59,3 +59,12 @@ which_key.register({
 		},
 	},
 })
+
+which_key.register({
+	f = { name = "File" },
+	g = { name = "Git" },
+	c = { name = "Code" },
+	t = { name = "Toggle" },
+	b = { name = "Buffer", c = { "Close" } },
+	o = { name = "Org", a = { "Agenda" }, c = { "Capture" } },
+}, { prefix = "<leader>" })

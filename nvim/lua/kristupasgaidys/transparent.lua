@@ -10,3 +10,5 @@ require("transparent").setup({
 	},
 	exclude = {},
 })
+
+normal("<leader>tt", ":TransparentToggle<cr>", "Toggle transperancy")

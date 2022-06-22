@@ -16,3 +16,12 @@ require("bufferline").setup({
 		separator_style = { "", "" },
 	},
 })
+
+normal("<leader>bb", ":BufferLinePick<cr>", "Choose buffer")
+normal("<leader>bj", ":BufferLineMovePrev<cr>", "Move buffer left")
+normal("<leader>bk", ":BufferLineMoveNext<cr>", "Move buffer right")
+normal("<leader>bcr", ":BufferLineCloseRight<cr>", "Close all buffers to the right")
+normal("<leader>bcl", ":BufferLineCloseLeft<cr>", "Close all buffers to the left")
+normal("<leader>j", ":BufferLineCyclePrev<cr>", "Go to previous buffer")
+normal("<leader>k", ":BufferLineCycleNext<cr>", "Go to next buffer")
+
