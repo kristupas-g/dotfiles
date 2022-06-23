@@ -6,6 +6,7 @@ require("indent_blankline").setup({
 	show_first_indent_level = false,
 	indent_level = 20,
 	max_indent_increase = 1,
+	filetype_exclude = { "dashboard" },
 })
 
 normal("<leader>ti", ":IndentBlanklineToggle<cr>", "Toggle indent lines")

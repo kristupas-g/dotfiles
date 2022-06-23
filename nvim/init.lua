@@ -1,11 +1,42 @@
+require("kristupasgaidys.disables")
 require("kristupasgaidys.settings")
 require("kristupasgaidys.keymaps")
 
 require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
+	use({
+		"lewis6991/impatient.nvim",
+		config = function()
+			require("impatient")
+		end,
+	})
+
+	use({
+		"nathom/filetype.nvim",
+		config = function()
+			vim.g.did_load_filetypes = 1
+			require("filetype").setup({})
+		end,
+	})
+
+	use({
+		"glepnir/dashboard-nvim",
+		config = function()
+			require("kristupasgaidys.dashboard")
+		end,
+	})
+
 	use("sainnhe/gruvbox-material")
 
+	use({ "kyazdani42/nvim-web-devicons" })
+	use({
+		"nvim-lualine/lualine.nvim",
+		requires = { "kyazdani42/nvim-web-devicons" },
+		config = function()
+			require("kristupasgaidys.line")
+		end,
+	})
 	use({
 		"xiyaowong/nvim-transparent",
 		config = function()
@@ -40,6 +71,7 @@ require("packer").startup(function(use)
 
 	use({
 		"akinsho/bufferline.nvim",
+		disable = true,
 		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.bufferline")
@@ -81,19 +113,15 @@ require("packer").startup(function(use)
 	})
 
 	use({
-		"williamboman/nvim-lsp-installer",
-		{
-			"neovim/nvim-lspconfig",
-			cmd = { "LspInstall" },
-			requires = {
-				"jose-elias-alvarez/nvim-lsp-ts-utils",
-				"nvim-lua/plenary.nvim",
-			},
-			config = function()
-				require("kristupasgaidys.lsp-installer")
-				require("kristupasgaidys.lspconfig")
-			end,
+		"neovim/nvim-lspconfig",
+		requires = {
+			"williamboman/nvim-lsp-installer",
+			"jose-elias-alvarez/nvim-lsp-ts-utils",
+			"nvim-lua/plenary.nvim",
 		},
+		config = function()
+			require("kristupasgaidys.lspconfig")
+		end,
 	})
 
 	use({
@@ -192,4 +220,23 @@ require("packer").startup(function(use)
 			require("kristupasgaidys.null-ls")
 		end,
 	})
+
+	use({
+		"nvim-neotest/neotest",
+		requires = {
+			"nvim-lua/plenary.nvim",
+			"nvim-treesitter/nvim-treesitter",
+			"antoinemadec/FixCursorHold.nvim",
+		},
+		config = function() end,
+	})
+
+	use({
+		"kristupas-g/project.nvim",
+		config = function() end,
+	})
+
+	use({ "kristupas-g/code_runner.nvim" })
+
+	use({ "ThePrimeagen/refactoring.nvim" })
 end)

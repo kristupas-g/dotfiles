@@ -18,16 +18,27 @@ telescope.setup({
 			previewer = false,
 			prompt_prefix = "🔍  ",
 		},
+		help_tags = {
+			theme = "dropdown",
+			previewer = false,
+			prompt_prefix = "🤨 ",
+		},
 		lsp_references = {
+			theme = "cursor",
 			initial_mode = "normal",
 			previewer = false,
 			prompt_prefix = "🔍  ",
 		},
 		lsp_implementations = {
-			initial_mode = "normal",
 			theme = "cursor",
+			initial_mode = "normal",
 			previewer = false,
 			prompt_prefix = "🔍  ",
+		},
+		buffers = {
+			theme = "cursor",
+			previewer = false,
+			prompt_prefix = "🪟 ",
 		},
 	},
 	extensions = {
@@ -40,5 +51,7 @@ telescope.setup({
 	},
 })
 
-normal("<leader><leader>", require("telescope.builtin").find_files, "Find files")
-normal("<leader>h", require("telescope.builtin").help_tags, "Help")
+local builtins = require("telescope.builtin")
+normal("<leader><leader>", builtins.find_files, "Find files")
+normal("<leader>h", builtins.help_tags, "Help")
+normal("<leader>.", builtins.buffers, "Switch buffers")

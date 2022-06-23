@@ -1,3 +1,4 @@
+require("kristupasgaidys.lsp-installer")
 local lsp = require("lspconfig")
 local capabilities = require("cmp_nvim_lsp").update_capabilities(vim.lsp.protocol.make_client_capabilities())
 local servers = { "cssls", "bashls", "jdtls", "sqlls", "gopls", "clangd" }
