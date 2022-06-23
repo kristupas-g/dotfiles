@@ -170,11 +170,11 @@ require("packer").startup(function(use)
 
 	use({
 		"ThePrimeagen/git-worktree.nvim",
+		after = { "telescope.nvim" },
 		requires = {
 			"nvim-lua/plenary.nvim",
 			"nvim-telescope/telescope.nvim",
 		},
-		after = { "telescope.nvim" },
 		config = function()
 			require("kristupasgaidys.worktree")
 		end,
@@ -225,6 +225,7 @@ require("packer").startup(function(use)
 
 	use({
 		"nvim-neotest/neotest",
+		disable = true,
 		requires = {
 			"nvim-lua/plenary.nvim",
 			"nvim-treesitter/nvim-treesitter",

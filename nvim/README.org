@@ -5,6 +5,5 @@
  *  Dap mode wait for dap-buddy(eases da installation)
 
  * neotest
- * impatient
  omega nvim
- project.nvim
+ ui-select
