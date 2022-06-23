@@ -48,8 +48,11 @@ telescope.setup({
 			override_file_sorter = true,
 			case_mode = "smart_case",
 		},
+		["ui-select"] = {},
 	},
 })
+
+require("telescope").load_extension("ui-select")
 
 local builtins = require("telescope.builtin")
 normal("<leader><leader>", builtins.find_files, "Find files")

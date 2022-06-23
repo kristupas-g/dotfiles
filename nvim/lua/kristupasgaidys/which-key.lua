@@ -64,6 +64,7 @@ which_key.register({
 	f = { name = "File" },
 	g = { name = "Git" },
 	c = { name = "Code" },
+	p = { name = "Project" },
 	t = { name = "Toggle" },
 	b = { name = "Buffer", c = { "Close" } },
 	o = { name = "Org", a = { "Agenda" }, c = { "Capture" } },

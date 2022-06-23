@@ -80,7 +80,10 @@ require("packer").startup(function(use)
 
 	use({
 		"nvim-telescope/telescope.nvim",
-		requires = "nvim-lua/plenary.nvim",
+		requires = {
+			"nvim-lua/plenary.nvim",
+			"nvim-telescope/telescope-ui-select.nvim",
+		},
 		config = function()
 			require("kristupasgaidys.tele_scope")
 		end,
@@ -174,7 +177,6 @@ require("packer").startup(function(use)
 		after = { "telescope.nvim" },
 		config = function()
 			require("kristupasgaidys.worktree")
-			require("telescope").load_extension("git_worktree")
 		end,
 	})
 
@@ -232,11 +234,30 @@ require("packer").startup(function(use)
 	})
 
 	use({
-		"kristupas-g/project.nvim",
-		config = function() end,
+		"ahmedkhalf/project.nvim",
+		config = function()
+			require("kristupasgaidys.project")
+		end,
 	})
 
-	use({ "kristupas-g/code_runner.nvim" })
+	use({
+		"ThePrimeagen/refactoring.nvim",
+		requires = {
+			"nvim-lua/plenary.nvim",
+			"nvim-treesitter/nvim-treesitter",
+		},
+		config = function()
+			require("kristupasgaidys.refactoring")
+		end,
+	})
 
-	use({ "ThePrimeagen/refactoring.nvim" })
+	-- use({
+	-- 	"kristupas-g/project.nvim",
+	-- 	disable = true,
+	-- 	config = function()
+	-- 		require("kristupasgaidys.project")
+	-- 	end,
+	-- })
+
+	-- use({ "kristupas-g/code_runner.nvim", disable = true })
 end)
