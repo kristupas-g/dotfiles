@@ -25,6 +25,6 @@ map cmd+ctrl+2 set_background_opacity -0.1
 
 
 # BEGIN_KITTY_THEME
-# Doom One
+# Catppuccin
 include current-theme.conf
 # END_KITTY_THEME

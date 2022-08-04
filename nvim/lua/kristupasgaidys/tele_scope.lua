@@ -10,6 +10,15 @@ telescope.setup({
 		path_display = function(opts, path)
 			return require("telescope.utils").path_smart(path)
 		end,
+		generic_sorter = require("telescope.sorters").get_generic_fuzzy_sorter,
+		find_command = {
+			"rg",
+			"--no-heading",
+			"--with-filename",
+			"--line-number",
+			"--column",
+			"--smart-case",
+		},
 	},
 	pickers = {
 		find_files = {
@@ -48,13 +57,13 @@ telescope.setup({
 			override_file_sorter = true,
 			case_mode = "smart_case",
 		},
-		["ui-select"] = {},
+		-- ["ui-select"] = {},
 	},
 })
 
-require("telescope").load_extension("ui-select")
+-- require("telescope").load_extension("ui-select")
 
 local builtins = require("telescope.builtin")
-normal("<leader><leader>", builtins.find_files, "Find files")
-normal("<leader>h", builtins.help_tags, "Help")
-normal("<leader>.", builtins.buffers, "Switch buffers")
+Normal("<leader><leader>", builtins.find_files, "Find files")
+Normal("<leader>h", builtins.help_tags, "Help")
+Normal("<leader>.", builtins.buffers, "Switch buffers")

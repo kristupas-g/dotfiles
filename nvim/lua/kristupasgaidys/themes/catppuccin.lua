@@ -1,0 +1,40 @@
+require("catppuccin").setup({
+	transparent_background = true,
+	term_colors = true,
+	styles = {
+		comments = "NONE",
+		conditionals = "italic",
+		loops = "NONE",
+		functions = "bold",
+		keywords = "italic",
+		strings = "NONE",
+		variables = "bold",
+		numbers = "NONE",
+		booleans = "NONE",
+		properties = "NONE",
+		types = "NONE",
+		operators = "NONE",
+	},
+	integrations = {
+		treesitter = true,
+		lsp_trouble = true,
+		gitsigns = false,
+		nvimtree = {
+			enabled = true,
+			show_root = true,
+			transparent_panel = true,
+		},
+		which_key = true,
+		dashboard = true,
+		neogit = true,
+		bufferline = false,
+		markdown = false,
+		lightspeed = true,
+		ts_rainbow = true,
+		notify = false,
+		telekasten = true,
+		symbols_outline = false,
+	},
+})
+
+vim.g.catppuccin_flavour = "latte" -- latte, frappe, macchiato, mocha

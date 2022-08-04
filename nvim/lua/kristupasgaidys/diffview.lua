@@ -9,10 +9,6 @@ require("diffview").setup({
 		},
 	},
 	file_history_panel = {
-		log_options = {
-			max_count = 64,
-			no_merges = true,
-		},
 		win_config = {
 			position = "bottom",
 			height = 6,
@@ -62,5 +58,5 @@ require("diffview").setup({
 	},
 })
 
-normal("<leader>gd", ":DiffviewOpen<cr>", "Diff")
-normal("<leader>gh", ":DiffviewFileHistory<cr>", "Current file history")
+Normal("<leader>gd", ":DiffviewOpen<cr>", "Diff")
+Normal("<leader>gh", ":DiffviewFileHistory<cr>", "Current file history")

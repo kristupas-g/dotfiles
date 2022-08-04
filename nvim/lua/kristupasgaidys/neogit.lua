@@ -38,4 +38,4 @@ require("neogit").setup({
 	},
 })
 
-normal("<leader>gg", require("neogit").open, "Git")
+Normal("<leader>gg", require("neogit").open, "Git")

@@ -7,6 +7,7 @@ require("nvim-treesitter.configs").setup({
 		"graphql",
 		"html",
 		"json",
+		"http",
 		"javascript",
 		"lua",
 		"markdown",
@@ -17,7 +18,6 @@ require("nvim-treesitter.configs").setup({
 		"bash",
 		"comment",
 		"java",
-		"org",
 	},
 	sync_install = false,
 	highlight = {

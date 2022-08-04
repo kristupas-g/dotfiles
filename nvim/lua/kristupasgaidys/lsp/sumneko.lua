@@ -9,9 +9,11 @@ require("lspconfig").sumneko_lua.setup({
 	capabilities = capabilities,
 	settings = {
 		Lua = {
-			diagnostics = {
-				globals = { "vim" },
-			},
+			completion = { enable = true, showWord = "Disable" },
+			runtime = { version = "LuaJIT" },
+			workspace = { library = { os.getenv("VIMRUNTIME") } },
+			telemetry = { enable = false },
+			globals = { "vim" },
 		},
 	},
 })

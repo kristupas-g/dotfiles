@@ -1,7 +1,6 @@
 local set = vim.opt
 local global = vim.g
 
-global.colors_name = "gruvbox-material"
 global.mapleader = " "
 global.filetype = "plugin indent on"
 
@@ -18,8 +17,8 @@ set.tabstop = 2 -- Insert 2 spaces for a tab
 set.shiftwidth = 2 -- Change the number of space characters inserted for indentation
 set.smarttab = true -- Makes tabbing smarter will realize you have 2 vs 4
 set.expandtab = true -- Converts tabs to spaces
-set.smartindent = true -- Makes indenting smart
 set.autoindent = true -- Good auto indent
+set.smartindent = true -- Makes indenting smart
 set.laststatus = 3 -- Always display the status line
 set.ignorecase = true -- Search isnt case sensitive
 set.background = "dark" -- Tell vim what the background color looks like
@@ -34,3 +33,6 @@ set.modeline = false
 set.conceallevel = 2 -- Required for org
 set.concealcursor = "nc" -- Required for org
 set.hlsearch = false
+set.shadafile = "NONE"
+set.shadafile = ""
+set.signcolumn = "yes"
