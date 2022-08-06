@@ -1,9 +1,11 @@
- *  Lazy loading
- *  Orgmode learn to use it
- *  Basic snippets
- *  add script to install all missing dependencies
- *  Dap mode wait for dap-buddy(eases da installation)
-
- * neotest
- omega nvim
- ui-select
+git conflicts
+git worktrees
+Basic snippets
+Dap mode 
+rest nvim
+neotest
+notify nvim
+add diagnostics to status statusline
+change icon based on mode in statusline
+show git branch in status line
+omega nvim

@@ -1,24 +1,23 @@
 require("kristupasgaidys.disables")
 require("kristupasgaidys.settings")
 require("kristupasgaidys.keymaps")
+require("kristupasgaidys.statusline")
 
 require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
-	require("kristupasgaidys.themes.theme_setup").setup(use)
+	use({
+		"sainnhe/everforest",
+		config = function()
+			vim.g.everforest_background = "soft"
+			vim.cmd("colorscheme everforest")
+		end,
+	})
 
 	use({
 		"lewis6991/impatient.nvim",
 		config = function()
 			require("impatient")
-		end,
-	})
-
-	use({
-		"nvim-lualine/lualine.nvim",
-		requires = { "kyazdani42/nvim-web-devicons" },
-		config = function()
-			require("kristupasgaidys.lualine")
 		end,
 	})
 
@@ -86,6 +85,7 @@ require("packer").startup(function(use)
 
 	use({
 		"kyazdani42/nvim-tree.lua",
+		disabled = true,
 		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.nvim-tree")
@@ -94,7 +94,6 @@ require("packer").startup(function(use)
 
 	use({
 		"folke/trouble.nvim",
-		cmd = { "Trouble" },
 		requires = "kyazdani42/nvim-web-devicons",
 		config = function()
 			require("kristupasgaidys.trouble")
@@ -103,32 +102,17 @@ require("packer").startup(function(use)
 
 	use({
 		"williamboman/mason.nvim",
+		requires = {
+			"jose-elias-alvarez/nvim-lsp-ts-utils",
+			"nvim-lua/plenary.nvim",
+			"williamboman/mason-lspconfig.nvim",
+			"neovim/nvim-lspconfig",
+		},
 		config = function()
-			require("mason").setup()
+			require("kristupasgaidys.lspconfig")
 		end,
 	})
 
-	-- use({
-	-- 	"neovim/nvim-lspconfig",
-	-- 	requires = {
-	-- 		"williamboman/nvim-lsp-installer",
-	-- 		"jose-elias-alvarez/nvim-lsp-ts-utils",
-	-- 		"nvim-lua/plenary.nvim",
-	-- 	},
-	-- 	config = function()
-	-- 		require("kristupasgaidys.lspconfig")
-	-- 	end,
-	-- })
-
-	use({
-		"williamboman/mason.nvim",
-		"williamboman/mason-lspconfig.nvim",
-		"neovim/nvim-lspconfig",
-		config = function()
-			require("mason").setup()
-			require("mason-lspconfig").setup()
-		end,
-	})
 	use({
 		"nvim-treesitter/nvim-treesitter",
 		requires = {
@@ -146,13 +130,6 @@ require("packer").startup(function(use)
 		"L3MON4D3/LuaSnip",
 		after = { "nvim-lspconfig" },
 		requires = "saadparwaiz1/cmp_luasnip",
-	})
-
-	use({
-		"sindrets/diffview.nvim",
-		config = function()
-			require("kristupasgaidys.diffview")
-		end,
 	})
 
 	use({
@@ -223,4 +200,6 @@ require("packer").startup(function(use)
 			require("kristupasgaidys.null-ls")
 		end,
 	})
+
+	use("~/Documents/repos/conflicts.nvim")
 end)

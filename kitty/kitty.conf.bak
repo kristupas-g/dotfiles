@@ -1,7 +1,7 @@
-font_family      JetBrains Mono NL Light
-bold_font        JetBrains Mono NL Bold
-italic_font      JetBrains Mono NL ExtraLight Italic
-bold_italic_font JetBrains Mono NL Bold Italic
+font_family        Iosevka Nerd Font Mono Regular
+bold_font          Iosevka Nerd Font Mono Bold
+italic_font        Iosevka Nerd Font Mono Italic 
+bold_italic_font   Iosevka Nerd Font Mono Bold Italic
 
 font_size 18.0
 adjust_line_height 0 

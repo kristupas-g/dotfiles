@@ -7,7 +7,7 @@ telescope.setup({
 			i = { ["<esc>"] = actions.close },
 		},
 		layout_strategy = "vertical",
-		path_display = function(opts, path)
+		path_display = function(_, path)
 			return require("telescope.utils").path_smart(path)
 		end,
 		generic_sorter = require("telescope.sorters").get_generic_fuzzy_sorter,
@@ -22,30 +22,30 @@ telescope.setup({
 	},
 	pickers = {
 		find_files = {
-			theme = "dropdown",
+			theme = "ivy",
 			shorten_path = true,
 			previewer = false,
 			prompt_prefix = "🔍  ",
 		},
 		help_tags = {
-			theme = "dropdown",
+			theme = "ivy",
 			previewer = false,
 			prompt_prefix = "🤨 ",
 		},
 		lsp_references = {
-			theme = "cursor",
+			theme = "ivy",
 			initial_mode = "normal",
 			previewer = false,
 			prompt_prefix = "🔍  ",
 		},
 		lsp_implementations = {
-			theme = "cursor",
+			theme = "ivy",
 			initial_mode = "normal",
 			previewer = false,
 			prompt_prefix = "🔍  ",
 		},
 		buffers = {
-			theme = "cursor",
+			theme = "ivy",
 			previewer = false,
 			prompt_prefix = "🪟 ",
 		},
@@ -57,11 +57,8 @@ telescope.setup({
 			override_file_sorter = true,
 			case_mode = "smart_case",
 		},
-		-- ["ui-select"] = {},
 	},
 })
-
--- require("telescope").load_extension("ui-select")
 
 local builtins = require("telescope.builtin")
 Normal("<leader><leader>", builtins.find_files, "Find files")
