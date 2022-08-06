@@ -4,16 +4,13 @@ Normal = function(keymap, command, label)
 end
 
 vim.keymap.set("i", "jk", "<esc>")
+
 Normal("<leader>w", "<C-w>", "Windows")
 Normal("<leader>fs", ":update<cr>", "Save file")
 
 Normal("<leader>tn", function()
 	vim.opt.number = not vim.opt.number:get()
 end, "Toggle line numbers")
-
-Normal("<leader>tc", function()
-	require("kristupasgaidys.themes.theme_switcher").switch_theme({})
-end, "Switch theme")
 
 Normal("<leader>fr", function()
 	vim.cmd(":so %")

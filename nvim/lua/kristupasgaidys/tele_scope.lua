@@ -35,13 +35,13 @@ telescope.setup({
 		lsp_references = {
 			theme = "ivy",
 			initial_mode = "normal",
-			previewer = false,
+			previewer = true,
 			prompt_prefix = "🔍  ",
 		},
 		lsp_implementations = {
 			theme = "ivy",
 			initial_mode = "normal",
-			previewer = false,
+			previewer = true,
 			prompt_prefix = "🔍  ",
 		},
 		buffers = {

@@ -8,8 +8,8 @@ cmp.setup({
 		end,
 	},
 	mapping = {
-		["<C-j>"] = cmp.mapping(cmp.mapping.scroll_docs(-4), { "i", "c" }),
-		["<C-k>"] = cmp.mapping(cmp.mapping.scroll_docs(4), { "i", "c" }),
+		["<C-n>"] = cmp.mapping(cmp.mapping.scroll_docs(-4), { "i", "c" }),
+		["<C-p>"] = cmp.mapping(cmp.mapping.scroll_docs(4), { "i", "c" }),
 		["<Down>"] = cmp.mapping(cmp.mapping.select_next_item(), { "i", "c" }),
 		["<Up>"] = cmp.mapping(cmp.mapping.select_prev_item(), { "i", "c" }),
 		["<esc>"] = cmp.mapping({
@@ -32,7 +32,6 @@ cmp.setup({
 		{ name = "nvim_lsp" },
 		{ name = "nvim_lsp_signature_help" },
 		{ name = "luasnip" },
-		{ name = "org" },
 		{ name = "buffer" },
 		{ name = "path" },
 	}),
