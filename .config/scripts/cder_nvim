@@ -1,4 +1,4 @@
 #!/bin/bash 
 
-cd $(find ~/.dotfiles ~/.dotfiles/.config  ~/Documents/repos ~/Documents/repos/work/ -maxdepth 1 | fzf) && nvim .
+nvim $(find ~/.dotfiles ~/.dotfiles/.config  ~/Documents/repos ~/Documents/repos/work/ -maxdepth 1 | fzf) 
 exec bash
