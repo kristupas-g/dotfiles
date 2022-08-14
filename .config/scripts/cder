@@ -1,0 +1,5 @@
+#!/bin/bash 
+
+cd $(find ~/.config ~/Documents/repos ~/Documents/repos/work/ -maxdepth 1 | fzf)
+exec bash
+
