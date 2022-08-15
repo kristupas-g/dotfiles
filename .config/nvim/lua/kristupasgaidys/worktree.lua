@@ -2,12 +2,8 @@ local worktree = require("git-worktree")
 
 worktree.my_create_git_worktree = function ()
   local branch_name = vim.fn.input("Branch name > ")
-  worktree.create_worktree(".worktree" .. branch_name, branch_name, "origin")
+  worktree.create_worktree(".worktree/" .. branch_name, branch_name, "origin")
 end
-
-worktree.setup({})
-local telescope = require("telescope")
-telescope.load_extension("git_worktree")
 
 -- op = Operations.Switch, Operations.Create, Operations.Delete
 -- metadata = table of useful values (structure dependent on op)
@@ -26,6 +22,10 @@ telescope.load_extension("git_worktree")
 --     print("Switched from " .. metadata.prev_path .. " to " .. metadata.path)
 --   end
 -- end)
+
+worktree.setup({})
+local telescope = require("telescope")
+telescope.load_extension("git_worktree")
 
 Normal("<leader>gw", telescope.extensions.git_worktree.git_worktrees, "Switch worktree")
 Normal("<leader>gc", worktree.my_create_git_worktree, "Create worktree")
