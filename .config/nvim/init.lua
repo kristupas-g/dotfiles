@@ -3,8 +3,8 @@ require("kristupasgaidys.settings")
 require("kristupasgaidys.keymaps")
 require("kristupasgaidys.statusline")
 
-vim.cmd("colorscheme oxocarbon-lua")
--- adwaita.nvim
+vim.cmd("colorscheme adwaita")
+
 require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
@@ -199,5 +199,11 @@ require("packer").startup(function(use)
 		end,
 	})
 
-	use("~/Documents/repos/conflicts.nvim")
+	use({
+		"rcarriga/nvim-notify",
+		config = function ()
+			vim.notify = require("notify")
+		end
+	})
+
 end)

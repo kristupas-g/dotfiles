@@ -1,4 +1,6 @@
 local worktree = require("git-worktree")
+local telescope = require("telescope")
+local notify = require("notify")
 
 worktree.my_create_git_worktree = function ()
   local branch_name = vim.fn.input("Branch name > ")
@@ -29,9 +31,7 @@ worktree.on_tree_change(function(op, metadata)
   end
 end)
 
-
 worktree.setup({})
-local telescope = require("telescope")
 telescope.load_extension("git_worktree")
 
 Normal("<leader>gw", telescope.extensions.git_worktree.git_worktrees, "Switch worktree")

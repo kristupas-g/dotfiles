@@ -1,12 +1,13 @@
 local null_ls = require("null-ls")
+local format = null_ls.builtins.formatting
+local diagnostics = null_ls.builtins.diagnostics
 
 null_ls.setup({
 	sources = {
-		null_ls.builtins.formatting.stylua,
-		null_ls.builtins.formatting.prettier,
-
-		null_ls.builtins.diagnostics.eslint,
-		null_ls.builtins.diagnostics.editorconfig_checker,
+		format.stylua,
+		format.prettier,
+		diagnostics.eslint,
+		diagnostics.editorconfig_checker,
 	},
 	diagnostics_format = "#{m}",
 	on_init = function()
