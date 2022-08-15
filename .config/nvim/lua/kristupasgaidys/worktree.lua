@@ -5,27 +5,34 @@ worktree.my_create_git_worktree = function ()
   worktree.create_worktree(".worktree/" .. branch_name, branch_name, "origin")
 end
 
--- op = Operations.Switch, Operations.Create, Operations.Delete
--- metadata = table of useful values (structure dependent on op)
---      Switch
---          path = path you switched to
---          prev_path = previous worktree path
---      Create
---          path = path where worktree created
---          branch = branch name
---          upstream = upstream remote name
---      Delete
---          path = path where worktree deleted
+local worktree_changed=function(op, metadata)  
 
--- worktree.on_tree_change(function(op, metadata)
---   if op == worktree.Operations.Switch then
---     print("Switched from " .. metadata.prev_path .. " to " .. metadata.path)
---   end
--- end)
+end
+
+local worktree_created=function(op, metadata)  
+
+end
+
+local worktree_deleted=function(op, metadata)  
+
+end
+
+worktree.on_tree_change(function(op, metadata)
+  if op == worktree.Operations.Switch then
+    worktree_changed(op, metadata)
+  end
+  if op == worktree.Operations.Create then
+    worktree_created(op, metadata)
+  end
+  if op == worktree.Operations.Delete then
+    worktree_deleted(op, metadata)
+  end
+end)
+
 
 worktree.setup({})
 local telescope = require("telescope")
 telescope.load_extension("git_worktree")
 
 Normal("<leader>gw", telescope.extensions.git_worktree.git_worktrees, "Switch worktree")
-Normal("<leader>gc", worktree.my_create_git_worktree, "Create worktree")
+Normal("<leader>gc", worktree.my_create_git_worktree, "Create worktree from main")
