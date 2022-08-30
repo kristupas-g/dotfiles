@@ -5,8 +5,10 @@ local diagnostics = null_ls.builtins.diagnostics
 null_ls.setup({
 	sources = {
 		format.stylua,
-		format.prettier,
+		format.prettierd,
+		format.black,
 		diagnostics.eslint,
+		diagnostics.flake8,
 		diagnostics.editorconfig_checker,
 	},
 	diagnostics_format = "#{m}",

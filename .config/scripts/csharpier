@@ -1,0 +1,3 @@
+#!/bin/bash 
+
+dotnet csharpier $(git ls-files -m | awk '/.cs$/{print}')

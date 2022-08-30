@@ -2,15 +2,16 @@ require("kristupasgaidys.disables")
 require("kristupasgaidys.settings")
 require("kristupasgaidys.keymaps")
 require("kristupasgaidys.statusline")
-
-vim.cmd("colorscheme adwaita")
+require("kristupasgaidys.lua_locals").init()
+require("kristupasgaidys.autocmds")
 
 require("packer").startup(function(use)
 	use("wbthomason/packer.nvim")
 
 	use("sainnhe/everforest")
-	use("B4mbus/oxocarbon-lua.nvim")
-	use('Mofiqul/adwaita.nvim')
+	use("Mofiqul/adwaita.nvim")
+	use("bluz71/vim-moonfly-colors")
+	use({ "catppuccin/nvim", as = "catppuccin" })
 
 	use({
 		"lewis6991/impatient.nvim",
@@ -132,21 +133,10 @@ require("packer").startup(function(use)
 
 	use({
 		"TimUntersberger/neogit",
+		disable = true,
 		requires = { "nvim-lua/plenary.nvim" },
 		config = function()
 			require("kristupasgaidys.neogit")
-		end,
-	})
-
-	use({
-		"ThePrimeagen/git-worktree.nvim",
-		after = { "telescope.nvim" },
-		requires = {
-			"nvim-lua/plenary.nvim",
-			"nvim-telescope/telescope.nvim",
-		},
-		config = function()
-			require("kristupasgaidys.worktree")
 		end,
 	})
 
@@ -200,10 +190,18 @@ require("packer").startup(function(use)
 	})
 
 	use({
-		"rcarriga/nvim-notify",
-		config = function ()
-			vim.notify = require("notify")
-		end
+		"hkupty/iron.nvim",
+		config = function()
+			require("kristupasgaidys.iron")
+		end,
 	})
 
+	use({
+		"phaazon/mind.nvim",
+		config = function()
+			require("mind").setup()
+		end,
+	})
+
+	require("kristupasgaidys.git")
 end)

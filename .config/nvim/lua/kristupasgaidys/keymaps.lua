@@ -6,7 +6,8 @@ end
 vim.keymap.set("i", "jk", "<esc>")
 Normal("<leader>w", "<C-w>", "Windows")
 Normal("<leader>fs", ":update<cr>", "Save file")
-Normal("<leader>bp", ":bprevious<cr>", "Previous file")
+-- Normal("<leader>bp", "C-o", "Previous buffer")
+-- Normal("<leader>bn", "C-i", "Next buffer")
 
 Normal("<leader>tn", function()
 	vim.opt.number = not vim.opt.number:get()
@@ -16,9 +17,20 @@ Normal("<leader>tc", function()
 	require("kristupasgaidys.themes.theme_switcher").switch_theme({})
 end, "Switch theme")
 
+Normal("<leader>fR", function()
+	local config_path = vim.fn.stdpath("config") .. "/init.lua"
+	vim.cmd(":source " .. config_path)
+end, "Reset Nvim")
+
 Normal("<leader>fr", function()
-	vim.cmd(":so %")
-end, "Source file")
+	vim.cmd(":source %")
+end, "Source current file")
+
+local tmux_runner = require("kristupasgaidys.tmux_runner")
+
+Normal("<leader>pr", tmux_runner.run_project, "Run project")
+Normal("<leader>pR", tmux_runner.restart_project, "Restart project")
+Normal("<leader>pk", tmux_runner.kill_running_project, "Kill running project")
 
 Lsp_base_bindings = function(_, bufnr)
 	local lsp_bind = function(keymap, command, desc)

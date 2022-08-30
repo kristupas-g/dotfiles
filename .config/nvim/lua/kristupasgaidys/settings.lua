@@ -1,6 +1,10 @@
 local set = vim.opt
 local global = vim.g
 
+vim.g.adwaita_darker = true
+vim.g.catppuccin_flavour = "latte"
+vim.cmd("colorscheme catppuccin")
+
 global.mapleader = " "
 global.filetype = "plugin indent on"
 
