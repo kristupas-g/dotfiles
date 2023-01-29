@@ -29,3 +29,8 @@ bind \ce 'cder_nvim'
 bind \cv 'nvim .'
 bind \cc 'clear'
 bind \cp 'find_in_dir'
+
+
+
+status --is-interactive; and rbenv init - fish | source
+
