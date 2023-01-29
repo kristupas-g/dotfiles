@@ -1,6 +1,9 @@
-Normal("<leader>ti", ":IndentBlanklineToggle<cr>", "Toggle indent lines")
 return {
 	"lukas-reineke/indent-blankline.nvim",
+	keys = {
+		{ "<leader>ti", ":IndentBlanklineToggle<cr>", desc = "Toggle indent lines" },
+	},
+	lazy = false,
 	opts = {
 		indentLine_enabled = 1,
 		char = "▏",

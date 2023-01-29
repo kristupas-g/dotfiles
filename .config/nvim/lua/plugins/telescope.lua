@@ -4,10 +4,6 @@ return {
 		"nvim-lua/plenary.nvim",
 		{
 			"nvim-telescope/telescope-fzf-native.nvim",
-			after = { "telescope.nvim" },
-			config = function()
-				require("telescope").load_extension("fzf")
-			end,
 			build = "make",
 		},
 	},
@@ -73,6 +69,8 @@ return {
 				},
 			},
 		})
+
+		telescope.load_extension("fzf")
 
 		local builtins = require("telescope.builtin")
 		Normal("<leader><leader>", builtins.find_files, "Find files")

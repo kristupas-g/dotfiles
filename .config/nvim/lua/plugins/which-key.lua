@@ -1,9 +1,7 @@
 return {
 	"folke/which-key.nvim",
-	config = function()
-		local which_key = require("which-key")
-
-		which_key.setup({
+	opts = {
+		{
 			plugins = {
 				marks = false,
 				registers = false,
@@ -37,7 +35,10 @@ return {
 			ignore_missing = false,
 			show_help = true,
 			triggers = "auto",
-		})
+		},
+	},
+	config = function()
+		local which_key = require("which-key")
 
 		which_key.register({
 			["<leader>"] = {

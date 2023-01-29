@@ -7,9 +7,13 @@ local function get_running_project_window_name()
 	return utils.get_project_name() .. "_run"
 end
 
-M.run_project = function()
-	local name = get_running_project_window_name()
-	tmux.create_window(name, Run_cmd, true)
+M.run_project = function(cmd)
+	if Commands ~= nil then
+		local name = get_running_project_window_name()
+		tmux.create_window(name, Commands.run, true)
+	else
+		vim.notify("Commands not set")
+	end
 end
 
 M.kill_running_project = function(on_killed)

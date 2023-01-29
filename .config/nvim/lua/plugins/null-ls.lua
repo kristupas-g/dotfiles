@@ -1,7 +1,12 @@
 return {
 	"jose-elias-alvarez/null-ls.nvim",
-	after = { "nvim-lspconfig" },
-	dependencies = "nvim-lua/plenary.nvim",
+	dependencies = {
+		{ "nvim-lua/plenary.nvim" },
+		{
+			"jay-babu/mason-null-ls.nvim",
+			opts = { ensure_installed = { "stylua", "prettierd", "black", "eslint", "flake8", "editorconfig_checker" } },
+		},
+	},
 	config = function()
 		local null_ls = require("null-ls")
 		local format = null_ls.builtins.formatting
@@ -16,12 +21,15 @@ return {
 				diagnostics.flake8,
 				diagnostics.editorconfig_checker,
 			},
+
 			diagnostics_format = "#{m}",
+
 			on_init = function()
 				local augroup = vim.api.nvim_create_augroup("Formatting", { clear = true })
+
 				vim.api.nvim_create_autocmd({ "BufWritePre" }, {
 					callback = function()
-						vim.lsp.buf.formatting_sync()
+						vim.lsp.buf.format()
 					end,
 					group = augroup,
 				})

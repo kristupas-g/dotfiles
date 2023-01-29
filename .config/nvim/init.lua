@@ -6,8 +6,5 @@ require("config.statusline")
 require("config.autocmds")
 
 require("config.git")
-require("plugins.lua-locals").init()
 
-
-
-require("lazy").setup("plugins")
+require("lazy").setup("plugins", require("config.lazy"))

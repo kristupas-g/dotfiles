@@ -1,12 +1,8 @@
 local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
 require("lspconfig").sumneko_lua.setup({
-	on_attach = function(client, bufnr)
-		client.resolved_capabilities.document_formatting = false
-		client.resolved_capabilities.document_range_formatting = false
-		Lsp_base_bindings(client, bufnr)
-	end,
 	capabilities = capabilities,
+	on_attach = Lsp_base_bindings,
 	settings = {
 		Lua = {
 			runtime = {
