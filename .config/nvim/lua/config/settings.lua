@@ -28,4 +28,4 @@ set.modeline = false
 set.hlsearch = false
 set.signcolumn = "yes"
 set.cursorline = true
-set.number= true
+set.number = true
