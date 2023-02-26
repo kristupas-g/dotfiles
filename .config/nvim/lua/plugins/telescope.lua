@@ -59,6 +59,9 @@ return {
 					previewer = false,
 					prompt_prefix = "🪟 ",
 				},
+				command_picker = {
+					theme = "ivy",
+				},
 			},
 			extensions = {
 				fzf = {
@@ -71,6 +74,7 @@ return {
 		})
 
 		telescope.load_extension("fzf")
+		telescope.load_extension("command_picker")
 
 		local builtins = require("telescope.builtin")
 		Normal("<leader><leader>", builtins.find_files, "Find files")

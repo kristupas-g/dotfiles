@@ -4,14 +4,14 @@ italic_font        Iosevka Nerd Font Mono Italic
 bold_italic_font   Iosevka Nerd Font Mono Bold Italic
 
 font_size 18.0
-adjust_line_height 0 
+adjust_line_height 7 
 adjust_column_width 0
 disable_ligatures never
 box_drawing_scale 0.001, 1, 1.5, 2
 cursor_shape block
 cursor_blink_interval 0
 mouse_hide_wait 2.0
-background_opacity 1 
+background_opacity 0.9
 dynamic_background_opacity yes
 hide_window_decorations yes
 clipboard_control write-clipboard write-primary read-clipboardk read-primary
@@ -25,6 +25,6 @@ map cmd+ctrl+2 set_background_opacity -0.1
 
 
 # BEGIN_KITTY_THEME
-# Catppuccin-Latte
+# Catppuccin-Mocha
 include current-theme.conf
 # END_KITTY_THEME
