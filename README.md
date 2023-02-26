@@ -1,2 +1,2 @@
-# dotfiles
+# personal dotfiles for macos
 stow .
