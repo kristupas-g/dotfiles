@@ -1,10 +1,11 @@
 require("config.disables")
 require("config.settings")
 require("config.bootstrap")
-require("config.keymaps")
-require("config.statusline")
+require("config.globals")
+require("config.keybinds")
 require("config.autocmds")
+require("config.statusline")
 
-require("config.git")
+require("personal.lua_locals").setup()
 
 require("lazy").setup("plugins", require("config.lazy"))

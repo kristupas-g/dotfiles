@@ -1,6 +1,6 @@
 return {
   dev = {
-    path = vim.fn.stdpath("config") .. "/lua/personal",
+    path = "~/Documents/repos/",
   },
   change_detection = {
     enabled = false,

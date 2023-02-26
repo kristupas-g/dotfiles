@@ -1,4 +1,5 @@
 local servers = {
+	"jdtls",
 	"bashls",
 	"gopls",
 	"clangd",
@@ -8,6 +9,7 @@ local servers = {
 	"texlab",
 	"jsonls",
 	"tsserver",
+	"marksman",
 }
 
 return {
@@ -29,7 +31,7 @@ return {
 			})
 		end
 
-		require("plugins.lsp_servers.sumneko")
+		require("plugins.lsp_servers.lua_ls")
 
 		vim.diagnostic.config({
 			virtual_text = true,

@@ -6,13 +6,13 @@ return {
 				marks = false,
 				registers = false,
 				presets = {
-					operators = false,
-					motions = false,
-					text_objects = false,
+					operators = true,
+					motions = true,
+					text_objects = true,
 					windows = false,
-					nav = false,
+					nav = true,
 					z = false,
-					g = false,
+					g = true,
 				},
 			},
 			key_labels = {
@@ -72,7 +72,6 @@ return {
 			p = { name = "Project" },
 			t = { name = "Toggle" },
 			b = { name = "Buffer", c = { "Close" } },
-			o = { name = "Org", a = { "Agenda" }, c = { "Capture" } },
 		}, { prefix = "<leader>" })
 	end,
 }

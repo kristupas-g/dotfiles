@@ -1,6 +1,7 @@
 # This file contains fish universal variable definitions.
 # VERSION: 3.0
 SETUVAR --export EDITOR:nvim
+SETUVAR --export JAVA_HOME:/Library/Java/JavaVirtualMachines/jdk\x2d19\x2ejdk/Contents/Home
 SETUVAR --export WEBGOAT_HSQLPORT:8081
 SETUVAR --export WEBGOAT_PORT:8080
 SETUVAR __fish_initialized:3400

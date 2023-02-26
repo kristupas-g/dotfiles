@@ -1,5 +1,6 @@
 return {
 	"ThePrimeagen/harpoon",
+	enabled = true,
 	config = function()
 		local harpoon = require("harpoon.ui")
 		local keymap_set = vim.keymap.set

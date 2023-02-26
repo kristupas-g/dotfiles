@@ -9,7 +9,7 @@ local function source_lua_locals()
 end
 
 local function make_autocmd()
-	local augroup = vim.api.nvim_create_autgroup("OnEnter", {})
+	local augroup = vim.api.nvim_create_augroup("OnEnter", {})
 	vim.api.nvim_create_autocmd("VimEnter", { callback = source_lua_locals, group = augroup })
 end
 

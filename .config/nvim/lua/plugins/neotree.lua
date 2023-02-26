@@ -62,7 +62,7 @@ return {
       },
       follow_current_file = true,
       group_empty_dirs = true,
-      hijack_netrw_behavior = "open_current",
+      hijack_netrw_behavior = "disabled",
       use_libuv_file_watcher = true,
       window = {
         position = "float",
