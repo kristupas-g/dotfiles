@@ -70,18 +70,22 @@
 
 (defun kg/kill-word ()
   "Kill word under or in front of the cursor"
+  (interactive)
     (er/mark-word)
     (delete-region (mark) (point)))
 
 (defun kg/kill-in-pairs ()
   "Kill content in pair of brackets"
+  (interactive)
   (er/mark-inside-pairs)
   (delete-region (mark) (point)))
 
 (keymap-global-set "M-k" 'nil)
 (keymap-global-set "M-k s" 'kill-sentence)
 (keymap-global-set "M-k w" 'kg/kill-word)
-(keymap-global-set "M-k b" 'kg/kill-in-pairs)
+(keymap-global-set "M-k p" 'kg/kill-in-pairs)
+;;(keymap-global-set "")
+
 
 (use-package catppuccin-theme
   :disabled t
