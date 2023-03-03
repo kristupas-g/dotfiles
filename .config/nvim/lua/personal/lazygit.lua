@@ -1,25 +1,20 @@
-local tmux = require("utils.tmux")
-
 local M = {}
 
-M.lazygit_ui = function()
-  tmux.create_window("Lazygit", "lazygit")
-end
+M.open = function()
+	vim.cmd.terminal("lazygit")
+	vim.cmd.startinsert()
 
-M.lazygit_branch = function()
-  tmux.create_window("Lazygit", "lazygit branch")
-end
+	local bufnr = vim.api.nvim_get_current_buf()
 
-M.lazygit_stash = function()
-  tmux.create_window("Lazygit", "lazygit stash")
-end
+	vim.keymap.set("t", "q", function()
+		vim.cmd("bdelete!")
+		-- Doesnt go back
+		vim.opt.laststatus = 3
+	end, { buffer = bufnr })
 
-M.lazygit_log = function()
-  tmux.create_window("Lazygit", "lazygit log")
-end
-
-M.lazygit_status = function()
-  tmux.create_window("Lazygit", "lazygit status")
+	vim.opt_local.relativenumber = false
+	vim.opt_local.number = false
+	vim.opt_local.laststatus = 0
 end
 
 return M

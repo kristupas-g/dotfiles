@@ -1,4 +1,5 @@
 require("config.lsp_keybinds")
+require("config.git_keybinds")
 
 vim.keymap.set("i", "jk", "<esc>")
 
