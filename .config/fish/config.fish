@@ -9,6 +9,10 @@ if not set -q TMUX
     tmux attach-session
 end
 
+# if not set -q ZELLIJ
+#   zellij
+# end
+
 set fish_greeting
 
 alias c="clear"

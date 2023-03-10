@@ -1,9 +1,16 @@
 return {
-	{
-		"catppuccin/nvim",
-		enabled = false,
-		opts = {
-			flavour = "mocha",
+	"catppuccin/nvim",
+	opts = {
+		{
+			flavour = "macchiato",
+			transparent_background = false,
+			show_end_of_buffer = false,
+			term_colors = false,
+			dim_inactive = {
+				enabled = true,
+				shade = "dark",
+				percentage = 0.15,
+			},
 			styles = {
 				comments = { "italic" },
 				conditionals = { "italic" },
@@ -18,19 +25,18 @@ return {
 				types = {},
 				operators = {},
 			},
-			transperent_background = true,
+			color_overrides = {},
+			custom_highlights = {},
+			integrations = {
+				cmp = true,
+				gitsigns = true,
+				nvimtree = true,
+				telescope = true,
+				notify = false,
+				neotest = true,
+				mini = false,
+				which_key = true,
+			},
 		},
-		config = function()
-			vim.cmd.colorscheme("catppuccin")
-		end,
-	},
-	{
-		"bluz71/vim-moonfly-colors",
-		enabled = true,
-		name = "moonfly",
-		config = function()
-			vim.g.moonflyTransparent = true
-			vim.cmd.colorscheme("moonfly")
-		end,
 	},
 }
