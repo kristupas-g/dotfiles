@@ -22,13 +22,4 @@ vim.keymap.set("n", "N", "Nzz")
 vim.keymap.set("n", "<C-n>", vim.cmd.bnext)
 vim.keymap.set("n", "<C-p>", vim.cmd.bprevious)
 
--- For mac keyboard
 vim.keymap.set("n", "<C-o>", "o<Esc>")
-
-Normal("<leader>R", function()
-	vim.cmd("Telescope command_picker")
-end, "Run cmd in right tmux split")
-
-Normal("<leader>rr", function()
-	require("harpoon.tmux").sendCommand("{right-of}", Previous_command .. "\n")
-end, "Run prev command")
