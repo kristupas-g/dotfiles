@@ -9,14 +9,22 @@ local disabled_built_ins = {
 	"netrwSettings",
 	"netrwFileHandlers",
 	"matchit",
-	"matchparen",
 	"tar",
 	"tarPlugin",
 	"rrhelper",
+	"spellfile_plugin",
 	"vimball",
 	"vimballPlugin",
 	"zip",
 	"zipPlugin",
+	"tutor",
+	"rplugin",
+	"syntax",
+	"synmenu",
+	"optwin",
+	"compiler",
+	"bugreport",
+	"ftplugin",
 }
 
 for _, plugin in pairs(disabled_built_ins) do

@@ -59,9 +59,6 @@ return {
 					previewer = false,
 					prompt_prefix = "🪟 ",
 				},
-				command_picker = {
-					theme = "ivy",
-				},
 			},
 			extensions = {
 				fzf = {
@@ -74,16 +71,10 @@ return {
 		})
 
 		telescope.load_extension("fzf")
-		telescope.load_extension("command_picker")
 
 		local builtins = require("telescope.builtin")
 		Normal("<leader><leader>", builtins.find_files, "Find files")
 		Normal("<leader>h", builtins.help_tags, "Help")
 		Normal("<leader>.", builtins.buffers, "Switch buffers")
-
-		-- vim.api.nvim_create_autocmd("UIEnter", {
-		-- 	callback = builtins.find_files,
-		-- 	group = vim.api.nvim_create_augroup("TelescopeEnter", {}),
-		-- })
 	end,
 }
