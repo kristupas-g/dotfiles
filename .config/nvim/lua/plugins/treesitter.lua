@@ -13,7 +13,7 @@ local languages = {
 	"typescript",
 	"yaml",
 	"bash",
-	"java",
+	"fennel",
 }
 
 return {

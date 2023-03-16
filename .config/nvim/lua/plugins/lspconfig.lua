@@ -1,5 +1,4 @@
 local servers = {
-	"jdtls",
 	"bashls",
 	"gopls",
 	"clangd",
@@ -10,13 +9,14 @@ local servers = {
 	"jsonls",
 	"tsserver",
 	"marksman",
+	"fennel-language-server",
 }
 
 return {
 	"neovim/nvim-lspconfig",
 	dependencies = {
 		"nvim-lua/plenary.nvim",
-		{ "williamboman/mason.nvim", config = true },
+		{ "williamboman/mason.nvim",           config = true },
 		{ "williamboman/mason-lspconfig.nvim", opts = { ensure_installed = servers } },
 	},
 	config = function()
