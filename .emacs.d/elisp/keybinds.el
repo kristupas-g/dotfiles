@@ -23,16 +23,18 @@
 (define-key evil-normal-state-map (kbd "SPC h")  'help-command)
 
 (buffer
-  "b" 'consult-buffer
-  "e" 'eval-buffer)
+  "b"  #'consult-buffer
+  "p"  #'previous-buffer
+  "n"  #'next-buffer
+  "e"  #'eval-buffer)
 
 (files
- "f"  'find-file
- "d"  'dired
- "s"  'save-buffer
- "p"  'goto-personal-config
- "n f" 'dired-create-empty-file
- "n d" 'dired-create-empty-directory)
+ "f"   #'find-file
+ "d"   #'dired
+ "s"   #'save-buffer
+ "p"   #'goto-personal-config
+ "n f" #'dired-create-empty-file
+ "n d" #'dired-create-empty-directory)
 
 (provide 'keybinds)
 

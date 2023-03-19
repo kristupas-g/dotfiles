@@ -2,6 +2,7 @@
 ;;; Code:
 
 (use-package org-roam
+  :disabled t
   :custom
   (org-roam-directory "~/Org")
   (org-roam-complete-everywhere t)
@@ -10,7 +11,7 @@
 
 (use-package org
   :init
-  (org-indent-mode)
+  ;;(org-indent-mode)
   (variable-pitch-mode 1)
   (auto-fill-mode 0)
   :config
@@ -21,7 +22,7 @@
   :after org
   :hook (org-mode . org-bullets-mode))
 
-(require 'org-indent)
+;; (require 'org-indent)
 
 (provide 'org-config)
 

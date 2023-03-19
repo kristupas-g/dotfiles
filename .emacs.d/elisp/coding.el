@@ -1,3 +1,6 @@
+;;; coding.el --- Coding related config
+;;; Code:
+
 (use-package corfu
   :custom
   (corfu-cycle t)
@@ -22,3 +25,6 @@
          (go-ts-mode . eglot-ensure)
          (bash-ts-mode . eglot-ensure)))
 
+(provide 'coding)
+
+;;; coding.el ends here

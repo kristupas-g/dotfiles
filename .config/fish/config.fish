@@ -9,6 +9,7 @@ set -Ux EDITOR nvim
 #     tmux attach-session
 # end
 
+set -Ux ZELLIJ_AUTO_ATTACH true
 if not set -q ZELLIJ
   zellij
 end
