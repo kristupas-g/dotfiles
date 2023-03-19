@@ -9,9 +9,8 @@ set -Ux EDITOR nvim
 #     tmux attach-session
 # end
 
-set -Ux ZELLIJ_AUTO_ATTACH true
 if not set -q ZELLIJ
-  zellij
+  zellij_sessionizer
 end
 
 set fish_greeting
@@ -37,11 +36,3 @@ bind \cp 'find_in_dir'
 
 
 status --is-interactive; and rbenv init - fish | source
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-if test -f /opt/homebrew/Caskroom/miniconda/base/bin/conda
-    eval /opt/homebrew/Caskroom/miniconda/base/bin/conda "shell.fish" "hook" $argv | source
-end
-# <<< conda initialize <<<
-
