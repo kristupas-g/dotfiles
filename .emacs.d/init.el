@@ -58,16 +58,12 @@
 (require 'completion)
 (require 'org-config)
 (require 'git)
-(require 'coding)
 
 (use-package undo-tree)                
 
 (use-package helpful)
 
 (use-package popper
-  :general
-  (leader
-   "." 'popper-toggle-latest)
   :config
   (setq popper-reference-buffers
         '("\\*Messages\\*" "\\*Warnings\\*" "\\*Helpfuln" "Output\\*$" "\\*Async Shell Command\\*" "\\*Backtrace\\*" help-mode compilation-mode))
