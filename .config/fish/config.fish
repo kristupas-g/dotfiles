@@ -1,17 +1,18 @@
 fish_add_path /opt/homebrew/bin
 fish_add_path $HOME/.config/scripts/
 fish_add_path $HOME/.cargo/bin/
+fish_add_path $HOME/.dotnet/tools/
 
 set -Ux JAVA_HOME /Library/Java/JavaVirtualMachines/jdk-19.jdk/Contents/Home
 set -Ux EDITOR nvim
 
-# if not set -q TMUX
-#     tmux attach-session
-# end
-
-if not set -q ZELLIJ
-  zellij_sessionizer
+if not set -q TMUX
+    tmux attach-session
 end
+
+# if not set -q ZELLIJ
+#   zellij_sessionizer
+# end
 
 set fish_greeting
 

@@ -13,13 +13,13 @@ Normal("gp", "%", "matching bracket")
 Normal("0", "^", "Start of line")
 Normal(")", "$", "End of line")
 
+Normal("<leader>bn", vim.cmd.bnext)
+Normal("<leader>bp", vim.cmd.bprevious)
+
 -- Keep cursor center when doing things
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
 vim.keymap.set("n", "n", "nzz")
 vim.keymap.set("n", "N", "Nzz")
-
-vim.keymap.set("n", "<C-n>", vim.cmd.bnext)
-vim.keymap.set("n", "<C-p>", vim.cmd.bprevious)
 
 vim.keymap.set("n", "<C-o>", "o<Esc>")

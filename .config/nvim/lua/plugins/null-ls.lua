@@ -4,7 +4,16 @@ return {
 		{ "nvim-lua/plenary.nvim" },
 		{
 			"jay-babu/mason-null-ls.nvim",
-			opts = { ensure_installed = { "stylua", "prettierd", "black", "eslint", "flake8", "editorconfig_checker" } },
+			opts = {
+				ensure_installed = {
+					"stylua",
+					"prettierd",
+					"black",
+					"eslint",
+					"flake8",
+					"csharpier",
+				},
+			},
 		},
 	},
 	config = function()
@@ -17,19 +26,17 @@ return {
 				format.stylua,
 				format.prettierd,
 				format.black,
+				format.csharpier,
 				diagnostics.eslint,
 				diagnostics.flake8,
-				diagnostics.editorconfig_checker,
 			},
-
 			diagnostics_format = "#{m}",
-
-			on_init = function()
+			on_attach = function(_, bufnr)
 				local augroup = vim.api.nvim_create_augroup("Formatting", { clear = true })
 
 				vim.api.nvim_create_autocmd({ "BufWritePre" }, {
 					callback = function()
-						vim.lsp.buf.format()
+						vim.lsp.buf.format({ bufnr = bufnr })
 					end,
 					group = augroup,
 				})
