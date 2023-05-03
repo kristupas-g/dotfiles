@@ -2,8 +2,9 @@
 ;;; Code:
 
 (use-package catppuccin-theme
-  :config (setq catppuccin-flavor 'macchiato)
-  :init (load-theme 'catppuccin t))
+  :disabled t
+  :init (setq catppuccin-flavor 'macchiato)
+  :config (load-theme 'catppuccin t))
 
 (use-package timu-spacegrey-theme
   :disabled t
@@ -11,15 +12,15 @@
   (load-theme 'timu-spacegrey t))
 
 (use-package doom-themes
-  :disabled t
   :config
-  (load-theme 'doom-one t))
+  (load-theme 'doom-dracula t))
 
 (use-package doom-modeline
-  :config (doom-modeline-mode 1)
-  :init (setq doom-modeline-height 2)
+  :config
+  (setq doom-modeline-height 2)
   (setq doom-modeline-major-mode-icon nil)
-  (setq doom-modeline-buffer-encoding nil))
+  (setq doom-modeline-buffer-encoding nil)
+  (doom-modeline-mode 1))
 
 (use-package all-the-icons
   :if (display-graphic-p))
@@ -28,6 +29,7 @@
   :hook prog-mode)
 
 (use-package highlight-indent-guides
+  :disabled t
   :hook prog-mode
   :init (setq highlight-indent-guides-method 'character))
 

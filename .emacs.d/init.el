@@ -1,7 +1,9 @@
 (require 'use-package)
 
 (use-package use-package
-  :custom (use-package-always-ensure t))
+  :custom (
+
+use-package-always-ensure t))
 
 (require 'package)
 (add-to-list 'package-archives
@@ -30,12 +32,11 @@
 (setq gc-cons-threshold most-positive-fixnum)
 (setq load-prefer-newer noninteractive)
 (setq package-quickstart t)
-(set-fringe-mode 0)
 (setq native-comp-async-report-warnings-errors nil)
 
 (set-face-attribute 'default nil
                     :font "Iosevka Nerd Font Mono"
-                    :height 150
+                    :height 160
                     :weight 'light)
 
 (tool-bar-mode -1)
@@ -57,19 +58,55 @@
 (require 'keybinds)
 (require 'completion)
 (require 'org-config)
+(require 'coding)
 (require 'git)
 
-(use-package undo-tree)                
-
-(use-package helpful)
+(use-package helpful
+  :general
+  (general-define-key
+   :keymaps 'help-map
+    "c" #'helpful-callable
+    "f" #'helpful-function
+    "M" #'helpful-macro
+    "C" #'helpful-command
+    "k" #'helpful-key
+    "v" #'helpful-variable
+    "p" #'helpful-at-point))
 
 (use-package popper
-  :config
+  :init
   (setq popper-reference-buffers
-        '("\\*Messages\\*" "\\*Warnings\\*" "\\*Helpfuln" "Output\\*$" "\\*Async Shell Command\\*" "\\*Backtrace\\*" help-mode compilation-mode))
-  :init (popper-mode 1)
-  (popper-echo-mode 1))
+        '("\\*Messages\\*"
+          "\\*Warnings\\*"
+          "\\*Help\\*"
+          "\\*Helpful"
+          "Output\\*$"
+          "\\*Async Shell Command\\*"
+          "\\*Backtrace\\*"
+          "\\*Apropos\\*"
+          help-mode
+          compilation-mode))
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1)
+  :general
+  (leader
+    "." 'popper-toggle-latest
+    ">" 'popper-toggle-type
+    "," 'popper-cycle))
+
+(use-package projectile
+  :config
+  (keymap-set evil-normal-state-map "SPC p" 'projectile-command-map)
+  (projectile-mode 1))
 
 (use-package super-save
+  :init
+  (setq super-save-auto-save-when-idle t)
+  (setq super-save-idle-duration 2)
   :config
   (super-save-mode 1))
+
+(use-package vterm)
+
+(use-package undo-tree)                

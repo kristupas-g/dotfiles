@@ -1,0 +1,8 @@
+#!/bin/bash 
+
+projects=$(tmuxinator list) 
+
+for t in ${projects[@]}; do
+  echo $t
+  echo "\n"
+done

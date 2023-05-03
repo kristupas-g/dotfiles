@@ -1,0 +1,1 @@
+("~/" "~/.dotfiles/" "~/Documents/repos/wixTS/node_modules/@babel/helpers/" "/opt/homebrew/" "~/Documents/repos/VintedHomeworkTask/" "~/Documents/repos/pyCourse/src/" "~/Documents/repos/kristoferis/hw_vinted_kristoferis_solovjov/")

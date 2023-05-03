@@ -15,24 +15,39 @@
   (general-create-definer buffer
                           :prefix "SPC b"
                           :keymaps 'normal)
-  (general-create-definer open
+  (general-create-definer org
                           :prefix "SPC o"
+                          :keymaps 'normal)
+  (general-create-definer open
+                          :prefix "SPC O"
                           :keymaps 'normal))
 
-(define-key evil-normal-state-map (kbd "SPC w")  'evil-window-map)
-(define-key evil-normal-state-map (kbd "SPC h")  'help-command)
+;; This doesnt work in some buffers
+(keymap-set evil-normal-state-map "SPC w" 'evil-window-map)
+(keymap-set evil-normal-state-map "SPC h" 'help-command)
+
+(leader
+  ":" 'execute-extended-command)
 
 (buffer
-  "b" 'consult-buffer
-  "e" 'eval-buffer)
+  "p" #'previous-buffer
+  "n" #'next-buffer
+  "b" #'consult-buffer
+  "e" #'eval-buffer
+  "k" #'kill-current-buffer)
+
+(open
+  "d" #'dired
+  "t" #'vterm
+  "s" #'eshell)
 
 (files
- "f"  'find-file
- "d"  'dired
- "s"  'save-buffer
- "p"  'goto-personal-config
- "n f" 'dired-create-empty-file
- "n d" 'dired-create-empty-directory)
+ "f"   #'find-file
+ "d"   #'dired
+ "s"   #'save-buffer
+ "p"   #'goto-personal-config
+ "n f" #'dired-create-empty-file
+ "n d" #'dired-create-empty-directory)
 
 (provide 'keybinds)
 

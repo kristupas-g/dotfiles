@@ -7,7 +7,7 @@ set -Ux JAVA_HOME /Library/Java/JavaVirtualMachines/jdk-19.jdk/Contents/Home
 set -Ux EDITOR nvim
 
 if not set -q TMUX
-    tmux attach-session
+   tmux attach-session
 end
 
 # if not set -q ZELLIJ

@@ -1,27 +1,101 @@
 ;;; -*- coding: utf-8; mode: lisp-data -*-
-(("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/"
-  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/.."))
+(("/Users/kristupasgaidys/org/notes.org" . 10986)
+ ("/Users/kristupasgaidys/org/roam/20230502120453-video_classification_task.org" . 176)
+ ("/Users/kristupasgaidys/org/roam/20230502110354-video_classification.org" . 805)
+ ("/Users/kristupasgaidys/.emacs.d/bookmarks" . 251)
+ ("/Users/kristupasgaidys/org/roam/20230419102301-diet.org" . 110)
+ ("/Users/kristupasgaidys/org/roam/20230416113039-hair.org" . 82)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/util.el" . 35)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/user-interface.el" . 693)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/editor.el" . 528)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/completion.el" . 48)
+ ("/Users/kristupasgaidys/org/roam/20230414114946-things_to_do_in_emacs.org" . 1434)
+ ("/Users/kristupasgaidys/org/roam/20230415164414-game_ideas.org" . 143)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/init.el" . 1329)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/org-config.el" . 97)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/keybinds.el" . 517)
+ ("/Users/kristupasgaidys/org/roam/20230414114919-computer_graphics.org" . 116)
+ ("/Users/kristupasgaidys/org/roam/20230414211838-project_ideas.org" . 104)
+ ("/Users/kristupasgaidys/org/roam/20230410121035-star_method.org" . 97)
+ ("/Users/kristupasgaidys/org/roam/20230413160332-building_a_compiler.org" . 97)
+ ("/Users/kristupasgaidys/remove_dotnet.sh" . 319)
+ ("/Users/kristupasgaidys/"
+  (dired-filename . "/Users/kristupasgaidys/.."))
+ ("/Users/"
+  (dired-filename . "/Users/.."))
+ ("/"
+  (dired-filename . "/opt"))
+ ("/opt/"
+  (dired-filename . "/opt/homebrew"))
+ ("/opt/homebrew/"
+  (dired-filename . "/opt/homebrew/opt"))
+ ("/opt/homebrew/opt/"
+  (dired-filename . "/opt/homebrew/opt/omnisharp"))
+ ("/opt/homebrew/opt/omnisharp/"
+  (dired-filename . "/opt/homebrew/opt/omnisharp/bin"))
+ ("/opt/homebrew/opt/omnisharp/bin/"
+  (dired-filename . "/opt/homebrew/opt/omnisharp/bin/omnisharp"))
+ ("/opt/homebrew/opt/omnisharp/bin/omnisharp/"
+  (dired-filename . "/opt/homebrew/opt/omnisharp/bin/omnisharp/OmniSharp.exe.config"))
+ ("/Users/kristupasgaidys/Documents/repos/pyCourse/src/one.py" . 409)
+ ("/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/VintedTask/Program.cs" . 184)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/coding.el" . 42)
+ ("/Users/kristupasgaidys/org/roam/"
+  (dired-filename . "/Users/kristupasgaidys/org/roam/20230410123926-generic_behavioral_interview_questions.org"))
+ ("/Users/kristupasgaidys/org/roam/20230410123844-personal_project_experiences.org" . 295)
+ ("/Users/kristupasgaidys/org/roam/20230410122443-experiences_while_working_at_benme.org" . 360)
+ ("/Users/kristupasgaidys/org/roam/20230410123926-generic_behavioral_interview_questions.org" . 146)
+ ("/Users/kristupasgaidys/.dotfiles/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d"))
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/eln-cache/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/eln-cache/.."))
  ("/Users/kristupasgaidys/.dotfiles/.emacs.d/"
-  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/init.el"))
- ("/Users/kristupasgaidys/.emacs.d/elisp/user-interface.el" . 54)
- ("/Users/kristupasgaidys/.emacs.d/elisp/completion.el" . 117)
- ("/Users/kristupasgaidys/.emacs.d/elisp/org-config.el" . 39)
- ("/Users/kristupasgaidys/.emacs.d/elisp/editor.el" . 741)
- ("/Users/kristupasgaidys/.dotfiles/.emacs.d/init.el" . 1580)
- ("/Users/kristupasgaidys/.emacs.d/elisp/keybinds.el" . 679)
- ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/keybinds.el" . 809)
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/tree-sitter"))
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/tree-sitter/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/tree-sitter/libtree-sitter-c-sharp.dylib"))
+ ("/Users/kristupasgaidys/Documents/repos/pyCourse/src/two.py" . 1057)
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/git.el" . 104)
+ ("/opt/homebrew/Cellar/emacs-plus@29/29.0.60/share/emacs/29.0.60/lisp/org/org-capture.el" . 64658)
+ ("/Users/kristupasgaidys/org/"
+  (dired-filename . "/Users/kristupasgaidys/org/roam"))
+ ("/opt/homebrew/Cellar/emacs-plus@29/29.0.60/share/emacs/29.0.60/etc/HELLO" . 1542)
+ ("/Users/kristupasgaidys/.emacs.d/elpa/lsp-mode-20230401.434/lsp-mode.el" . 108004)
+ ("/Users/kristupasgaidys/.emacs.d/"
+  (dired-filename . "/Users/kristupasgaidys/.emacs.d/elisp"))
+ ("/Users/kristupasgaidys/Documents/repos/pyCourse/"
+  (dired-filename . "/Users/kristupasgaidys/Documents/repos/pyCourse/src"))
+ ("/Users/kristupasgaidys/Documents/repos/pyCourse/src/"
+  (dired-filename . "/Users/kristupasgaidys/Documents/repos/pyCourse/src/one.py"))
+ ("/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/VintedTask/Domain/Enums/ShipmentSize.cs" . 26)
+ ("/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/VintedTask/Services/DiscountService.cs" . 226)
+ ("/Users/kristupasgaidys/.emacs.d/.cache/lsp/omnisharp-roslyn/latest/"
+  (dired-filename . "/Users/kristupasgaidys/.emacs.d/.cache/lsp/omnisharp-roslyn/latest/OmniSharp.Abstractions.dll"))
+ ("/etc/dotnet/install_location" . 24)
+ ("/etc/dotnet/install_location_arm64" . 23)
+ ("/Users/kristupasgaidys/.emacs.d/.cache/"
+  (dired-filename . "/Users/kristupasgaidys/.emacs.d/.cache/lsp"))
+ ("/Users/kristupasgaidys/.emacs.d/.cache/lsp/"
+  (dired-filename . "/Users/kristupasgaidys/.emacs.d/.cache/lsp/omnisharp-roslyn"))
+ ("/Users/kristupasgaidys/.emacs.d/.cache/lsp/omnisharp-roslyn/"
+  (dired-filename . "/Users/kristupasgaidys/.emacs.d/.cache/lsp/omnisharp-roslyn/latest"))
+ ("/Users/kristupasgaidys/.dotfiles/.config/fish/config.fish" . 259)
+ ("/etc/dotnet/"
+  (dired-filename . "/etc/dotnet/install_location"))
+ ("/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/"
+  (dired-filename . "/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/VintedTask"))
+ ("/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/VintedTask/"
+  (dired-filename . "/Users/kristupasgaidys/Documents/repos/VintedHomeworkTask/VintedTask/Program.cs"))
+ ("/Users/kristupasgaidys/.dotfiles/.config/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.config/.DS_Store"))
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/package-quickstart.el" . 135773)
+ ("/Users/kristupasgaidys/.dotfiles/.config/fish/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.config/fish/config.fish"))
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/auto-save-list/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/auto-save-list/.saves-45984-Kristupass-Air.lan~"))
+ ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/"
+  (dired-filename . "/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/.."))
  ("/opt/homebrew/Cellar/emacs-plus@29/29.0.60/share/emacs/29.0.60/lisp/help.el" . 3971)
- ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/coding.el" . 205)
  ("/Users/kristupasgaidys/.emacs.d/elisp/mac-os.el" . 83)
  ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/mac-os.el" . 195)
  ("/Users/kristupasgaidys/.emacs.d/elisp/"
-  (dired-filename . "/Users/kristupasgaidys/.emacs.d/elisp/org-config.el"))
- ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/user-interface.el" . 58)
- ("/Users/kristupasgaidys/.dotfiles/.emacs.d/elisp/editor.el" . 118)
- ("/Users/kristupasgaidys/.config/emacs/modules/"
-  (dired-filename . "/Users/kristupasgaidys/.config/emacs/modules/editor"))
- ("/Users/kristupasgaidys/.config/emacs/modules/editor/"
-  (dired-filename . "/Users/kristupasgaidys/.config/emacs/modules/editor/evil"))
- ("/Users/kristupasgaidys/.config/emacs/modules/editor/evil/"
-  (dired-filename . "/Users/kristupasgaidys/.config/emacs/modules/editor/evil/config.el"))
- ("/Users/kristupasgaidys/.config/emacs/modules/editor/evil/config.el" . 2001))
+  (dired-filename . "/Users/kristupasgaidys/.emacs.d/elisp/org-config.el")))

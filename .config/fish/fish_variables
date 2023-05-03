@@ -1,5 +1,6 @@
 # This file contains fish universal variable definitions.
 # VERSION: 3.0
+SETUVAR --export DOTNET_ROOT:/opt/homebrew/Cellar/dotnet/7\x2e0\x2e100
 SETUVAR --export EDITOR:nvim
 SETUVAR --export JAVA_HOME:/Library/Java/JavaVirtualMachines/jdk\x2d19\x2ejdk/Contents/Home
 SETUVAR --export WEBGOAT_HSQLPORT:8081

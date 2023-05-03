@@ -1,0 +1,73 @@
+echo $LSP_USE_PLIStS
+echo $LSP_USE_PLISTS 
+dotnet 
+dotnet --list-runtimes
+~
+/etc/dotnet/ 
+ls
+cat install_location 
+$cp install_location_arm64 install_location
+cp install_location_arm64 install_location 
+sudo cp install_location_arm64 install_location 
+cat install_location 
+~
+/etc/dotnet/ 
+ls
+cat install_location_arm64 
+cat install_location 
+cat install_location_x64 
+..
+..
+echo $DOTNET_ROOT
+echo $DOTNET_ROOT 
+exit
+..
+..
+..
+..
+.
+..
+ls
+usr/local/share/
+ls
+ls -a
+..
+..
+..
+pyright
+~
+cd .dotfiles/.emacs.d/.cache/
+ls
+lsp/omnisharp-roslyn/latest/
+ls
+./Omnisharp
+t
+quit
+./delete_dotnet.sh
+cd
+ls
+remove_dotnet.sh
+bash remove_dotnet.sh 
+sudo bash remove_dotnet.sh 
+dotnet
+dotnet
+sudo rm -rf /usr/share/dotnet
+dotnet
+brew remove dotnet
+clear
+c
+clear
+brew tap omnisharp/omnisharp-roslyn
+brew update
+brew install dotnet
+brew install omnisharp
+omnisharp
+brew list | grep omnisharp
+brew list
+devcontainer             gat                      kitex                    meta-package-manager     ntfy                     vvdec                    vvenc
+brew upgrade omnisharp
+==> Downloading https://ghcr.io/v2/homebrew/core/meson/manifests/1.1.0
+brew remove omnisharp
+brew install omnisharp
+omnisharp
+mono /opt/homebrew/opt/omnisharp-mono/libexec/OmniSharp.exe
