@@ -6,10 +6,6 @@ return {
 		"hrsh7th/cmp-nvim-lsp",
 		"hrsh7th/cmp-cmdline",
 		"onsails/lspkind-nvim",
-		{
-			"L3MON4D3/LuaSnip",
-			version = "<CurrentMajor>.*",
-		},
 	},
 	config = function()
 		local cmp = require("cmp")

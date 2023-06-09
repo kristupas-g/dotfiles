@@ -1,6 +1,5 @@
 local servers = {
 	"bashls",
-	"gopls",
 	"clangd",
 	"rust_analyzer",
 	"omnisharp",
@@ -9,7 +8,7 @@ local servers = {
 	"jsonls",
 	"tsserver",
 	"marksman",
-	-- "fennel-language-server",
+	"solargraph",
 }
 
 return {
@@ -104,12 +103,14 @@ return {
 							range = true,
 						}
 					end
+
 					Lsp_base_bindings(client, bufnr)
 				end,
 			})
 		end
 
 		require("plugins.lsp_servers.lua_ls")
+		require("plugins.lsp_servers.solargraph")
 
 		vim.diagnostic.config({
 			virtual_text = true,

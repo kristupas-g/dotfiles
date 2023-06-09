@@ -1,6 +1,7 @@
 local languages = {
 	"c",
 	"c_sharp",
+	"ruby",
 	"css",
 	"go",
 	"html",

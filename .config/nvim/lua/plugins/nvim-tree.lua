@@ -4,7 +4,6 @@ return {
 		require("nvim-tree").setup({
 			disable_netrw = true,
 			hijack_cursor = true,
-			open_on_setup = false,
 			respect_buf_cwd = true,
 			view = {
 				adaptive_size = true,
