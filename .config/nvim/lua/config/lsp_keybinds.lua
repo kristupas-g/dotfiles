@@ -38,4 +38,10 @@ Lsp_base_bindings = function(client, bufnr)
 		test.run("suite")
 	end, "Run test suite")
 	lsp_bind("<leader>te", test.edit, "Edit test")
+
+	lsp_bind("<leader>oo", "<cmd>:Other<CR>")
+	lsp_bind("<leader>os", "<cmd>:OtherSplit<CR>")
+	lsp_bind("<leader>ov", "<cmd>:OtherVSplit<CR>")
+	lsp_bind("<leader>oc", "<cmd>:OtherClear<CR>")
+	lsp_bind("<leader>ot", "<cmd>:Other test<CR>")
 end

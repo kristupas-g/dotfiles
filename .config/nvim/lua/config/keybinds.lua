@@ -14,6 +14,7 @@ Normal("0", "^", "Start of line")
 Normal(")", "$", "End of line")
 
 Normal("<leader>bn", vim.cmd.bnext)
+Normal("<leader>bb", ":b#<CR>")
 Normal("<leader>bp", vim.cmd.bprevious)
 
 -- Keep cursor center when doing things
