@@ -18,6 +18,11 @@ return {
 		})
 		require("nvim-test.runners.rspec"):setup({
 			command = { "bundle", "exec", "rspec" }, -- a command to run the test runner
+			finder = function(filename)
+				print("HELLO WORLD")
+				vim.pretty_print(filename)
+				return filename
+			end,
 		})
 	end,
 }
