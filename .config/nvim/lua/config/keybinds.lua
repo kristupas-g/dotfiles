@@ -17,6 +17,8 @@ Normal("<leader>bn", vim.cmd.bnext)
 Normal("<leader>bb", ":b#<CR>")
 Normal("<leader>bp", vim.cmd.bprevious)
 
+Normal("<Tab>", "<C-W>w")
+
 -- Keep cursor center when doing things
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
@@ -24,3 +26,5 @@ vim.keymap.set("n", "n", "nzz")
 vim.keymap.set("n", "N", "Nzz")
 
 vim.keymap.set("n", "<C-o>", "o<Esc>")
+
+vim.keymap.set("v", "y", "ygv<Esc>")
