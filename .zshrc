@@ -1,7 +1,6 @@
 export ZSH="$HOME/.oh-my-zsh"
 
 ZSH_THEME="robbyrussell"
-ENABLE_CORRECTION="true"
 DISABLE_UNTRACKED_FILES_DIRTY="true"
 
 plugins=(git)
@@ -16,3 +15,7 @@ if [ $? != 0 ]; then
 else
   tmux attach-session -t $SESSION_NAME
 fi
+
+alias gs="git status -s"
+alias c="clear"
+alias lg="lazygit"
