@@ -1,0 +1,5 @@
+[font]
+size = 25
+[window]
+decorations = "Buttonless"
+startup_mode = "SimpleFullscreen"
