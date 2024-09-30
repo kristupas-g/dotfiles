@@ -219,8 +219,11 @@ require('lazy').setup({
             vim.keymap.set(mode, keys, func, { buffer = event.buf })
           end
 
+          map('gd', vim.lsp.buf.definition)
           map('<leader>rn', vim.lsp.buf.rename)
           map('<leader>.', vim.lsp.buf.code_action, { 'n', 'x' })
+          map('<leader>en', vim.diagnostic.goto_next)
+          map('<leader>ep', vim.diagnostic.goto_prev)
         end,
       })
 
@@ -276,5 +279,37 @@ require('lazy').setup({
         },
       })
     end,
+  },
+  {
+    'nvim-neotest/neotest',
+    dependencies = {
+      'nvim-neotest/nvim-nio',
+      'nvim-lua/plenary.nvim',
+      'olimorris/neotest-rspec',
+    },
+    lazy = false,
+    config = function()
+      require('neotest').setup({
+        adapters = {
+          require('neotest-rspec'),
+        },
+      })
+    end,
+    keys = {
+      {
+        '<leader>tt',
+        function()
+          require('neotest').run.run(vim.fn.expand('%'))
+        end,
+        mode = 'n'
+      },
+      {
+        '<leader>to',
+        function()
+          require('neotest').output_panel.open()
+        end,
+        mode = 'n'
+      },
+    }
   },
 })
