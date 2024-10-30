@@ -92,12 +92,12 @@ local function tmux_left(command_to_run)
 end
 
 vim.keymap.set('n', '<leader>t', function()
-  local current_file = vim.fn.expand("%:.")
-  local test_file_path = current_file:find("_spec.rb") and current_file or vim.b.onv_otherFile
+  local current_file = vim.fn.expand('%:.')
+  local test_file_path = current_file:find('_spec.rb') and current_file or vim.b.onv_otherFile
   if test_file_path == nil then
     vim.notify('Could not find test file')
   end
-  tmux_left("bundle exec rspec " .. test_file_path)
+  tmux_left('bundle exec rspec ' .. test_file_path)
 end, { noremap = true, silent = true })
 
 require('lazy').setup({
@@ -343,7 +343,22 @@ require('lazy').setup({
     lazy = false,
     config = function()
       require('other-nvim').setup({
-        mappings = { 'rails', 'golang', 'python' },
+        mappings = {
+          'golang',
+          'python',
+          {
+            pattern = '/app/(.*)/(.*).rb',
+            target = {
+              { context = 'test', target = '/spec/%1/%2_spec.rb' },
+            },
+          },
+          {
+            pattern = '(.+)/spec/(.*)/(.*)_spec.rb',
+            target = {
+              { target = '%1/app/%2/%3.rb' },
+            },
+          },
+        },
       })
     end,
     keys = {
