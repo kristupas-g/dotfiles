@@ -149,7 +149,12 @@ require('lazy').setup({
       {
         '<leader><leader>',
         function()
-          require('fzf-lua').files({ previewer = false, resume = true, git_icons = false })
+          require('fzf-lua').files({
+            previewer = false,
+            resume = true,
+            git_icons = false,
+            cwd = vim.fn.getcwd(),
+          })
         end,
       },
       {
