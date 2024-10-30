@@ -54,17 +54,64 @@ vim.api.nvim_create_user_command('Econf', function()
   vim.cmd('e ~/dotfiles/.config/nvim/init.lua')
 end, {})
 
-local lazygit = function()
+local function lazygit()
   local current_file_dir = vim.fn.expand('%:p:h')
   vim.fn.system("tmux popup -h 30 -w 120 -d '" .. current_file_dir .. "' -E lazygit status")
 end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = true })
 
+local function tmux_left(command_to_run)
+  local current_pane = tonumber(vim.fn.system("tmux display-message -p '#P'"))
+  local left_pane = tonumber(
+    vim.fn
+      .system(
+        "tmux list-panes -F '#{pane_index} #{pane_left}' | grep -v "
+          .. current_pane
+          .. " | awk '{print $1}'"
+      )
+      :match('%S+')
+  )
+  print(left_pane)
+
+  if left_pane == nil then
+    local current_file_dir = vim.fn.expand('%:p:h')
+    vim.fn.system('tmux split-window -h -c ' .. current_file_dir .. '; swap-pane -s ! -t')
+    left_pane = tonumber(
+      vim.fn
+        .system(
+          "tmux list-panes -F '#{pane_index} #{pane_left}' | grep -v "
+            .. current_pane
+            .. " | awk '{print $1}'"
+        )
+        :match('%S+')
+    )
+  end
+
+  vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
+end
+
+tmux_left('sleep 2')
+vim.keymap.set('n', '<leader>t', function()
+  tmux_left('sleep 2')
+end, { noremap = true, silent = true })
+
 require('lazy').setup({
   'tpope/vim-sleuth',
 
   { 'windwp/nvim-autopairs', config = true },
+
+  {
+    'echasnovski/mini.base16',
+    version = '*',
+    config = function()
+      local plugin = require('mini.base16')
+      plugin.setup({
+        palette = plugin.mini_palette('#131313', '#B2CDB5', 75),
+      })
+      vim.cmd('colorscheme minicyan')
+    end,
+  },
 
   {
     'stevearc/oil.nvim',
@@ -98,7 +145,7 @@ require('lazy').setup({
       {
         '<leader><leader>',
         function()
-          require('fzf-lua').files({ previewer = false, resume = true })
+          require('fzf-lua').files({ previewer = false, resume = true, git_icons = false })
         end,
       },
       {
@@ -121,6 +168,7 @@ require('lazy').setup({
     opts = {
       enabled = true,
       trigger_events = { 'InsertLeave' },
+      execution_message = { message = '' },
     },
   },
 
@@ -275,8 +323,17 @@ require('lazy').setup({
           end,
         },
       })
+
+      vim.lsp.handlers['textDocument/publishDiagnostics'] =
+        vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+          virtual_text = true,
+          signs = false,
+          underline = false,
+          update_in_insert = false,
+        })
     end,
   },
+
   {
     'nvim-neotest/neotest',
     dependencies = {
@@ -298,15 +355,41 @@ require('lazy').setup({
         function()
           require('neotest').run.run(vim.fn.expand('%'))
         end,
-        mode = 'n'
+        mode = 'n',
       },
       {
         '<leader>to',
         function()
           require('neotest').output_panel.open()
         end,
-        mode = 'n'
+        mode = 'n',
       },
-    }
+    },
+  },
+
+  {
+    'rgroli/other.nvim',
+    lazy = false,
+    config = function()
+      require('other-nvim').setup({
+        mappings = { 'rails', 'golang', 'python' },
+      })
+    end,
+    keys = {
+      {
+        '<leader>o',
+        function()
+          require('other-nvim').open()
+        end,
+        mode = 'n',
+      },
+      {
+        '<leader>O',
+        function()
+          require('other-nvim').openVSplit()
+        end,
+        mode = 'n',
+      },
+    },
   },
 })
