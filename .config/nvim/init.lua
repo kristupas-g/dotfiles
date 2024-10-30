@@ -72,11 +72,11 @@ local function tmux_left(command_to_run)
       )
       :match('%S+')
   )
-  print(left_pane)
 
   if left_pane == nil then
-    local current_file_dir = vim.fn.expand('%:p:h')
-    vim.fn.system('tmux split-window -h -c ' .. current_file_dir .. '; swap-pane -s ! -t')
+    local current_file_dir = vim.fn.getcwd()
+    vim.fn.system('tmux split-window -h -c ' .. current_file_dir)
+
     left_pane = tonumber(
       vim.fn
         .system(
@@ -91,9 +91,13 @@ local function tmux_left(command_to_run)
   vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
 end
 
-tmux_left('sleep 2')
 vim.keymap.set('n', '<leader>t', function()
-  tmux_left('sleep 2')
+  local current_file = vim.fn.expand("%:.")
+  local test_file_path = current_file:find("_spec.rb") and current_file or vim.b.onv_otherFile
+  if test_file_path == nil then
+    vim.notify('Could not find test file')
+  end
+  tmux_left("bundle exec rspec " .. test_file_path)
 end, { noremap = true, silent = true })
 
 require('lazy').setup({
@@ -332,39 +336,6 @@ require('lazy').setup({
           update_in_insert = false,
         })
     end,
-  },
-
-  {
-    'nvim-neotest/neotest',
-    dependencies = {
-      'nvim-neotest/nvim-nio',
-      'nvim-lua/plenary.nvim',
-      'olimorris/neotest-rspec',
-    },
-    lazy = false,
-    config = function()
-      require('neotest').setup({
-        adapters = {
-          require('neotest-rspec'),
-        },
-      })
-    end,
-    keys = {
-      {
-        '<leader>tt',
-        function()
-          require('neotest').run.run(vim.fn.expand('%'))
-        end,
-        mode = 'n',
-      },
-      {
-        '<leader>to',
-        function()
-          require('neotest').output_panel.open()
-        end,
-        mode = 'n',
-      },
-    },
   },
 
   {
