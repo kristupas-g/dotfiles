@@ -61,7 +61,7 @@ end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = true })
 
-local function tmux_left(command_to_run)
+local function tmux_split(command_to_run)
   local current_pane = tonumber(vim.fn.system("tmux display-message -p '#P'"))
   local left_pane = tonumber(
     vim.fn
@@ -97,7 +97,7 @@ vim.keymap.set('n', '<leader>t', function()
   if test_file_path == nil then
     vim.notify('Could not find test file')
   end
-  tmux_left('bundle exec rspec ' .. test_file_path)
+  tmux_split('bundle exec rspec ' .. test_file_path)
 end, { noremap = true, silent = true })
 
 require('lazy').setup({
