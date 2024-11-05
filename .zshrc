@@ -18,7 +18,24 @@ if [ -z "$TMUX" ]; then
   fi
 fi
 
+function repair() {
+  id=`blueutil --paired | grep "Magic" | grep -Eo '[a-z0-9]{2}(-[a-z0-9]{2}){5}'`
+  name=`blueutil --paired | grep "Magic" | grep -Eo 'name: "\S+"'`
+  echo "unpairing with BT device $id, $name"
+  blueutil --unpair "$id"
+  echo "unpaired, waiting a few seconds for kb to go to pairable state"
+  sleep 3
+  echo "pairing with BT device $id, $name"
+  blueutil --pair "$id" "0000"
+  echo "paired"
+  blueutil --connect "$id"
+  echo "connected"
+}
+
+export PATH="$HOME/.rbenv/bin:$PATH"
+
 alias gs="git status -s"
 alias c="clear"
 alias lg="lazygit"
 alias v="nvim"
+alias py="python3"
