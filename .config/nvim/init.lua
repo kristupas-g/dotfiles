@@ -100,6 +100,8 @@ vim.keymap.set('n', '<leader>t', function()
   tmux_split('bundle exec rspec ' .. test_file_path)
 end, { noremap = true, silent = true })
 
+vim.keymap.set('n', '<leader>p', '<C-^>')
+
 require('lazy').setup({
   'tpope/vim-sleuth',
 
@@ -140,18 +142,45 @@ require('lazy').setup({
   },
 
   {
+    'nvim-telescope/telescope.nvim',
+    tag = '0.1.8',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    opts = {},
+    keys = {
+      {
+        '<leader>j',
+        function()
+          require('telescope.builtin').find_files()
+        end,
+      },
+      {
+        '<leader>w',
+        function()
+          require('fzf-lua').grep_last()
+        end,
+      },
+      {
+        '<leader>b',
+        function()
+          require('fzf-lua').git_branches()
+        end,
+      },
+    },
+  },
+
+  {
     'ibhagwan/fzf-lua',
+    enabled = false,
     lazy = false,
     config = function()
       require('fzf-lua').setup({})
     end,
     keys = {
       {
-        '<leader><leader>',
+        '<leader>j',
         function()
           require('fzf-lua').files({
             previewer = false,
-            resume = true,
             git_icons = false,
             cwd = vim.fn.getcwd(),
           })
@@ -198,6 +227,7 @@ require('lazy').setup({
         'json',
         'go',
         'ruby',
+        'nix',
       },
       auto_install = true,
       highlight = { enable = true },
@@ -286,6 +316,7 @@ require('lazy').setup({
         vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
       local servers = {
+        nil_ls = {},
         gopls = {},
         pyright = {},
         lua_ls = {
