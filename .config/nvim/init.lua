@@ -40,6 +40,8 @@ vim.opt.hlsearch = false
 vim.opt.cursorline = true
 vim.opt.wrap = false
 vim.opt.swapfile = false
+vim.opt.laststatus = 3
+vim.opt.cmdheight = 0
 
 vim.api.nvim_create_autocmd('TextYankPost', {
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
@@ -108,15 +110,10 @@ require('lazy').setup({
   { 'windwp/nvim-autopairs', config = true },
 
   {
-    'echasnovski/mini.base16',
-    version = '*',
+    "sainnhe/gruvbox-material",
     config = function()
-      local plugin = require('mini.base16')
-      plugin.setup({
-        palette = plugin.mini_palette('#131313', '#B2CDB5', 75),
-      })
-      vim.cmd('colorscheme minicyan')
-    end,
+      vim.cmd("colorscheme gruvbox-material")
+    end
   },
 
   {
@@ -156,7 +153,7 @@ require('lazy').setup({
       {
         '<leader>w',
         function()
-          require('fzf-lua').grep_last()
+          require('telescope.builtin').grep_string()
         end,
       },
       {
