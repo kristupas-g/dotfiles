@@ -4,7 +4,7 @@ local config = {}
 config.color_scheme = "Gruvbox Dark (Gogh)"
 
 config.font = wezterm.font("Iosevka Nerd Font Mono")
-config.font_size = 13
+config.font_size = 22
 
 config.enable_tab_bar = false
 -- config.disable_default_key_bindings = true

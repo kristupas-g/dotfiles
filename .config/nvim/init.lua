@@ -58,12 +58,12 @@ end, {})
 
 local function lazygit()
   local current_file_dir = vim.fn.expand('%:p:h')
-  vim.fn.system("tmux popup -h 30 -w 120 -d '" .. current_file_dir .. "' -E lazygit status")
+  vim.fn.system("tmux popup -h 20 -w 120 -d '" .. current_file_dir .. "' -E lazygit status")
 end
 
-vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = true })
+vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
 
-local function tmux_split(command_to_run)
+function Tmux_split(command_to_run)
   local current_pane = tonumber(vim.fn.system("tmux display-message -p '#P'"))
   local left_pane = tonumber(
     vim.fn
@@ -93,15 +93,6 @@ local function tmux_split(command_to_run)
   vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
 end
 
-vim.keymap.set('n', '<leader>t', function()
-  local current_file = vim.fn.expand('%:.')
-  local test_file_path = current_file:find('_spec.rb') and current_file or vim.b.onv_otherFile
-  if test_file_path == nil then
-    vim.notify('Could not find test file')
-  end
-  tmux_split('bundle exec rspec ' .. test_file_path)
-end, { noremap = true, silent = true })
-
 vim.keymap.set('n', '<leader>p', '<C-^>')
 
 require('lazy').setup({
@@ -110,10 +101,10 @@ require('lazy').setup({
   { 'windwp/nvim-autopairs', config = true },
 
   {
-    "sainnhe/gruvbox-material",
+    'sainnhe/gruvbox-material',
     config = function()
-      vim.cmd("colorscheme gruvbox-material")
-    end
+      vim.cmd('colorscheme gruvbox-material')
+    end,
   },
 
   {
@@ -142,7 +133,12 @@ require('lazy').setup({
     'nvim-telescope/telescope.nvim',
     tag = '0.1.8',
     dependencies = { 'nvim-lua/plenary.nvim' },
-    opts = {},
+    opts = {
+      pickers = {
+        find_files = { theme = 'ivy', layout_config = { height = 0.50 } },
+        git_branches = { theme = 'ivy', layout_config = { height = 0.50 } },
+      },
+    },
     keys = {
       {
         '<leader>j',
@@ -153,46 +149,20 @@ require('lazy').setup({
       {
         '<leader>w',
         function()
-          require('telescope.builtin').grep_string()
+          -- add to visual mode
+          require('telescope.builtin').live_grep()
         end,
       },
       {
         '<leader>b',
         function()
-          require('fzf-lua').git_branches()
-        end,
-      },
-    },
-  },
-
-  {
-    'ibhagwan/fzf-lua',
-    enabled = false,
-    lazy = false,
-    config = function()
-      require('fzf-lua').setup({})
-    end,
-    keys = {
-      {
-        '<leader>j',
-        function()
-          require('fzf-lua').files({
-            previewer = false,
-            git_icons = false,
-            cwd = vim.fn.getcwd(),
-          })
+          require('telescope.builtin').git_branches()
         end,
       },
       {
-        '<leader>w',
+        '<leader><leader>',
         function()
-          require('fzf-lua').grep_last()
-        end,
-      },
-      {
-        '<leader>b',
-        function()
-          require('fzf-lua').git_branches()
+          require('telescope.builtin').resume()
         end,
       },
     },
