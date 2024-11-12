@@ -1,15 +1,14 @@
 local lazypath = vim.fn.stdpath('data') .. '/lazy/lazy.nvim'
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
-  local out =
-    vim.fn.system({
-      'git',
-      'clone',
-      '--filter=blob:none',
-      '--branch=stable',
-      lazyrepo,
-      lazypath,
-    })
+  local out = vim.fn.system({
+    'git',
+    'clone',
+    '--filter=blob:none',
+    '--branch=stable',
+    lazyrepo,
+    lazypath,
+  })
   if vim.v.shell_error ~= 0 then
     vim.api.nvim_echo({
       { 'Failed to clone lazy.nvim:\n', 'ErrorMsg' },
@@ -54,10 +53,7 @@ Maxline = 80
 vim.cmd('set colorcolumn=' .. Maxline)
 
 vim.api.nvim_create_autocmd('TextYankPost', {
-  group = vim.api.nvim_create_augroup(
-    'kickstart-highlight-yank',
-    { clear = true }
-  ),
+  group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
   callback = function()
     vim.highlight.on_yank()
   end,
@@ -103,9 +99,7 @@ function Tmux_split(command_to_run)
     )
   end
 
-  vim.fn.system(
-    'tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m"
-  )
+  vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
 end
 
 vim.keymap.set('n', '<leader>p', '<C-^>')
@@ -134,17 +128,17 @@ require('lazy').setup({
     lazy = false,
     config = function()
       require('treesj').setup({
-        max_join_length = 80
+        max_join_length = 80,
       })
     end,
     keys = {
       {
         '<leader>/',
-        function ()
+        function()
           require('treesj').toggle()
-        end
+        end,
       },
-    }
+    },
   },
 
   {
@@ -215,7 +209,11 @@ require('lazy').setup({
 
       require('telescope').setup({
         pickers = {
-          find_files = { theme = 'ivy', layout_config = { height = 0.50 }, previewer = false },
+          find_files = {
+            theme = 'ivy',
+            layout_config = { height = 0.50 },
+            previewer = false,
+          },
         },
         defaults = {
           history = {
