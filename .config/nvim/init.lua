@@ -59,7 +59,8 @@ end, {})
 
 local function lazygit()
   local current_file_dir = vim.fn.expand('%:p:h')
-  vim.fn.system("tmux popup -h 20 -w 120 -d '" .. current_file_dir .. "' -E lazygit status")
+  vim.fn.system("tmux new-window 'cd " .. current_file_dir .. " && lazygit status'")
+
 end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
