@@ -132,13 +132,44 @@ require('lazy').setup({
   {
     'nvim-telescope/telescope.nvim',
     tag = '0.1.8',
-    dependencies = { 'nvim-lua/plenary.nvim' },
-    opts = {
-      pickers = {
-        find_files = { theme = 'ivy', layout_config = { height = 0.50 } },
-        git_branches = { theme = 'ivy', layout_config = { height = 0.50 } },
-      },
+    lazy = false,
+    dependencies = {
+      { 'nvim-lua/plenary.nvim' },
+      { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
+      { 'nvim-telescope/telescope-smart-history.nvim' },
     },
+    config = function()
+      require('telescope').load_extension('fzf')
+      require('telescope').load_extension('smart_history')
+      local actions = require('telescope.actions')
+
+      require('telescope').setup({
+        pickers = {
+          find_files = { theme = 'ivy', layout_config = { height = 0.50 }, previewer = false },
+          git_branches = { theme = 'ivy', layout_config = { height = 0.50 } },
+        },
+        defaults = {
+          history = {
+            path = '~/.local/share/nvim/databases/telescope_history.sqlite3',
+            limit = 100,
+          },
+          mappings = {
+            i = {
+              ['<esc><esc>'] = false,
+              ['jk'] = actions.close,
+            }
+          },
+        },
+        extensions = {
+          fzf = {
+            fuzzy = true,
+            override_generic_sorter = true,
+            override_file_sorter = true,
+            case_mode = 'smart_case',
+          },
+        },
+      })
+    end,
     keys = {
       {
         '<leader>j',
@@ -283,7 +314,6 @@ require('lazy').setup({
         vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
       local servers = {
-        nil_ls = {},
         gopls = {},
         pyright = {},
         lua_ls = {
