@@ -2,7 +2,14 @@ local lazypath = vim.fn.stdpath('data') .. '/lazy/lazy.nvim'
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
   local out =
-    vim.fn.system({ 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath })
+    vim.fn.system({
+      'git',
+      'clone',
+      '--filter=blob:none',
+      '--branch=stable',
+      lazyrepo,
+      lazypath,
+    })
   if vim.v.shell_error ~= 0 then
     vim.api.nvim_echo({
       { 'Failed to clone lazy.nvim:\n', 'ErrorMsg' },
@@ -43,9 +50,14 @@ vim.opt.swapfile = false
 vim.opt.laststatus = 3
 vim.opt.cmdheight = 0
 vim.opt.exrc = true
+Maxline = 80
+vim.cmd('set colorcolumn=' .. Maxline)
 
 vim.api.nvim_create_autocmd('TextYankPost', {
-  group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
+  group = vim.api.nvim_create_augroup(
+    'kickstart-highlight-yank',
+    { clear = true }
+  ),
   callback = function()
     vim.highlight.on_yank()
   end,
@@ -60,7 +72,6 @@ end, {})
 local function lazygit()
   local current_file_dir = vim.fn.expand('%:p:h')
   vim.fn.system("tmux new-window 'cd " .. current_file_dir .. " && lazygit'")
-
 end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
@@ -92,7 +103,9 @@ function Tmux_split(command_to_run)
     )
   end
 
-  vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
+  vim.fn.system(
+    'tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m"
+  )
 end
 
 vim.keymap.set('n', '<leader>p', '<C-^>')
@@ -114,6 +127,24 @@ require('lazy').setup({
     config = function()
       require('leap').create_default_mappings()
     end,
+  },
+
+  {
+    'Wansmer/treesj',
+    lazy = false,
+    config = function()
+      require('treesj').setup({
+        max_join_length = 80
+      })
+    end,
+    keys = {
+      {
+        '<leader>/',
+        function ()
+          require('treesj').toggle()
+        end
+      },
+    }
   },
 
   {
@@ -237,11 +268,11 @@ require('lazy').setup({
       trigger_events = { 'InsertLeave' },
       execution_message = { message = '' },
       condition = function(buf)
-        if vim.bo[buf].filetype == "harpoon" then
+        if vim.bo[buf].filetype == 'harpoon' then
           return false
         end
         return true
-      end
+      end,
     },
   },
 
@@ -268,7 +299,7 @@ require('lazy').setup({
       auto_install = true,
       highlight = { enable = true },
       indent = { enable = true, disable = { 'ruby' } },
-      endwise = { enable = true, },
+      endwise = { enable = true },
     },
   },
 
@@ -279,6 +310,7 @@ require('lazy').setup({
       'hrsh7th/cmp-path',
       'hrsh7th/cmp-buffer',
       'hrsh7th/cmp-cmdline',
+      { 'L3MON4D3/LuaSnip', version = 'v2.*' },
     },
     config = function()
       local cmp = require('cmp')
