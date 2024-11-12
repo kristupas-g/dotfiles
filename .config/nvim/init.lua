@@ -161,7 +161,7 @@ require('lazy').setup({
       {
         '<leader>e',
         function()
-          vim.cmd('Oil')
+          require('oil').open()
         end,
         mode = 'n',
       },
@@ -185,7 +185,6 @@ require('lazy').setup({
       require('telescope').setup({
         pickers = {
           find_files = { theme = 'ivy', layout_config = { height = 0.50 }, previewer = false },
-          git_branches = { theme = 'ivy', layout_config = { height = 0.50 } },
         },
         defaults = {
           history = {
@@ -219,14 +218,7 @@ require('lazy').setup({
       {
         '<leader>w',
         function()
-          -- add to visual mode
           require('telescope.builtin').live_grep()
-        end,
-      },
-      {
-        '<leader>b',
-        function()
-          require('telescope.builtin').git_branches()
         end,
       },
       {
@@ -255,6 +247,7 @@ require('lazy').setup({
 
   {
     'nvim-treesitter/nvim-treesitter',
+    dependencies = { 'RRethy/nvim-treesitter-endwise' },
     build = ':TSUpdate',
     main = 'nvim-treesitter.configs',
     opts = {
@@ -275,6 +268,7 @@ require('lazy').setup({
       auto_install = true,
       highlight = { enable = true },
       indent = { enable = true, disable = { 'ruby' } },
+      endwise = { enable = true, },
     },
   },
 
@@ -456,4 +450,6 @@ require('lazy').setup({
       },
     },
   },
+
+  { 'tpope/vim-rhubarb' },
 })
