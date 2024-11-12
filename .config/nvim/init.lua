@@ -42,6 +42,7 @@ vim.opt.wrap = false
 vim.opt.swapfile = false
 vim.opt.laststatus = 3
 vim.opt.cmdheight = 0
+vim.opt.exrc = true
 
 vim.api.nvim_create_autocmd('TextYankPost', {
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
