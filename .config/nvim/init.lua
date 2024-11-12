@@ -59,7 +59,7 @@ end, {})
 
 local function lazygit()
   local current_file_dir = vim.fn.expand('%:p:h')
-  vim.fn.system("tmux new-window 'cd " .. current_file_dir .. " && lazygit status'")
+  vim.fn.system("tmux new-window 'cd " .. current_file_dir .. " && lazygit'")
 
 end
 
