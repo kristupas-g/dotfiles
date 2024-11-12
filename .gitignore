@@ -4,3 +4,4 @@ htop
 litecli
 qBittorrent
 .vscode
+.nvim.lua
