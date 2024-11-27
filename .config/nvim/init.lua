@@ -41,7 +41,7 @@ vim.opt.splitright = true
 vim.opt.splitbelow = true
 vim.opt.list = true
 vim.opt.inccommand = 'split'
-vim.opt.scrolloff = 20
+vim.opt.scrolloff = 999
 vim.opt.hlsearch = false
 vim.opt.cursorline = true
 vim.opt.wrap = false
@@ -128,6 +128,7 @@ require('lazy').setup({
     lazy = false,
     config = function()
       require('treesj').setup({
+        use_default_keymaps = false,
         max_join_length = 80,
       })
     end,
@@ -200,11 +201,10 @@ require('lazy').setup({
     dependencies = {
       { 'nvim-lua/plenary.nvim' },
       { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
-      { 'nvim-telescope/telescope-smart-history.nvim' },
+      { 'nvim-telescope/telescope-fzy-native.nvim' },
     },
     config = function()
-      require('telescope').load_extension('fzf')
-      require('telescope').load_extension('smart_history')
+      -- require('telescope').load_extension('fzf')
       local actions = require('telescope.actions')
 
       require('telescope').setup({
@@ -228,11 +228,15 @@ require('lazy').setup({
           },
         },
         extensions = {
-          fzf = {
-            fuzzy = true,
-            override_generic_sorter = true,
+          -- fzf = {
+          --   fuzzy = true,
+          --   override_generic_sorter = true,
+          --   override_file_sorter = true,
+          --   case_mode = 'smart_case',
+          -- },
+          fzy_native = {
+            override_generic_sorter = false,
             override_file_sorter = true,
-            case_mode = 'smart_case',
           },
         },
       })
@@ -309,6 +313,13 @@ require('lazy').setup({
       'hrsh7th/cmp-buffer',
       'hrsh7th/cmp-cmdline',
       { 'L3MON4D3/LuaSnip', version = 'v2.*' },
+      {
+        'zbirenbaum/copilot-cmp',
+        event = 'LspAttach',
+        config = function()
+          require('copilot_cmp').setup()
+        end,
+      },
     },
     config = function()
       local cmp = require('cmp')
@@ -324,6 +335,7 @@ require('lazy').setup({
           ['<Right>'] = cmp.mapping.confirm({ select = true }),
         }),
         sources = {
+          { name = 'copilot' },
           { name = 'nvim_lsp' },
           { name = 'path' },
           { name = 'buffer' },
@@ -437,6 +449,17 @@ require('lazy').setup({
           underline = false,
           update_in_insert = false,
         })
+    end,
+  },
+
+  {
+    'zbirenbaum/copilot.lua',
+    event = 'LspAttach',
+    config = function()
+      require('copilot').setup({
+        panel = { enabled = false },
+        suggestion = { enabled = false },
+      })
     end,
   },
 

@@ -1,27 +1,9 @@
 (require 'use-package)
 
-(use-package use-package
-  :custom (
-
-use-package-always-ensure t))
-
-(require 'package)
-(add-to-list 'package-archives
-            '("melpa" . "https://melpa.org/packages/") t)
-
-(setq package-native-compile t)
-(global-hl-line-mode)
-(global-auto-revert-mode 1)
-(save-place-mode 1)
-(blink-cursor-mode -1)
-(setq custom-file (concat user-emacs-directory "/custom.el"))
-(load custom-file 'noerror 'nomessage)
-(setq initial-major-mode 'fundamental-mode)
-(set-default-coding-systems 'utf-8-unix)
+(use-package use-packagault-coding-systems 'utf-8-unix)
 (setq confirm-kill-processes nil)
 (setq use-short-answers t)
-(setq scroll-margin 9)
-(setq-default line-spacing 6)
+(setq scroll-margin 30)
 (setq make-backup-filnes nil)
 (setq auto-save-default nil)
 (setq inhibit-startup-message t)
@@ -34,9 +16,11 @@ use-package-always-ensure t))
 (setq package-quickstart t)
 (setq native-comp-async-report-warnings-errors nil)
 
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+
 (set-face-attribute 'default nil
                     :font "Iosevka Nerd Font Mono"
-                    :height 160
+                    :height 190
                     :weight 'light)
 
 (tool-bar-mode -1)
@@ -44,22 +28,29 @@ use-package-always-ensure t))
 (menu-bar-mode -1)
 (scroll-bar-mode -1)
 (electric-pair-mode 1)
+(blink-cursor-mode -1)
 (setq ring-bell-function 'ignore)
 (add-to-list 'default-frame-alist '(undecorated . t))
+
+(auto-save-visited-mode 1)
+(setq auto-save-visited-interval 1)
 
 (add-to-list 'load-path (concat user-emacs-directory "elisp/"))
 
 (when (eq system-type 'darwin)
   (require 'mac-os))
 
+(setq project-switch-commands #'project-find-file)
+
 (require 'util)
 (require 'user-interface)
 (require 'editor)
 (require 'keybinds)
 (require 'completion)
-(require 'org-config)
+;; (require 'org-config)
 (require 'coding)
 (require 'git)
+(require 'ruby)
 
 (use-package helpful
   :general
@@ -95,18 +86,3 @@ use-package-always-ensure t))
     ">" 'popper-toggle-type
     "," 'popper-cycle))
 
-(use-package projectile
-  :config
-  (keymap-set evil-normal-state-map "SPC p" 'projectile-command-map)
-  (projectile-mode 1))
-
-(use-package super-save
-  :init
-  (setq super-save-auto-save-when-idle t)
-  (setq super-save-idle-duration 2)
-  :config
-  (super-save-mode 1))
-
-(use-package vterm)
-
-(use-package undo-tree)                
