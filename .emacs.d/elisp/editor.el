@@ -32,10 +32,6 @@
   :after evil
   :init (evil-collection-init))
 
-(use-package evil-snipe
-  :after evil
-  :init (evil-snipe-mode 1))
-
 (provide 'editor)
 
 ;;; editor.el ends here

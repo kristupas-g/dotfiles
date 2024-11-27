@@ -23,22 +23,25 @@
                           :keymaps 'normal))
 
 ;; This doesnt work in some buffers
-(keymap-set evil-normal-state-map "SPC w" 'evil-window-map)
-(keymap-set evil-normal-state-map "SPC h" 'help-command)
+(define-key evil-normal-state-map (kbd "SPC w") 'evil-window-map)
+(define-key evil-normal-state-map (kbd "SPC h") 'help-command)
+(define-key evil-normal-state-map (kbd "SPC p") project-prefix-map)
 
-(leader
-  ":" 'execute-extended-command)
+(define-key evil-normal-state-map (kbd "SPC SPC") #'project-find-file)
+
+(leader ":" 'execute-extended-command)
 
 (buffer
   "p" #'previous-buffer
   "n" #'next-buffer
   "b" #'consult-buffer
   "e" #'eval-buffer
+  "i" #'ibuffer
   "k" #'kill-current-buffer)
 
 (open
   "d" #'dired
-  "t" #'vterm
+  "t" #'term
   "s" #'eshell)
 
 (files
