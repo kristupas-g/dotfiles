@@ -1,16 +1,16 @@
 (use-package corfu
   :custom
-  (corfu-cycle t)
-  (corfu-auto t)
-  (corfu-quit-no-match t)
-  (corfu-preview-current t)
-  (corfu-scroll-margin 6)
-  (corfu-echo-mode t)
-  (corfu-auto-delay t)
+  ;; (corfu-cycle t)
+  ;; (corfu-auto t)
+  ;; (corfu-quit-no-match t)
+  ;; (corfu-preview-current t)
+  ;; (corfu-scroll-margin 6)
+  ;; (corfu-echo-mode t)
+  ;; (corfu-auto-delay t)
   :config (global-corfu-mode))
 
-(use-package treesit-auto
-  :config (global-treesit-auto-mode))
+;(use-package treesit-auto
+;  :config (global-treesit-auto-mode))
 
 (use-package eglot
   :hook ((python-ts-mode . eglot-ensure)
