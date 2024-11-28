@@ -17,16 +17,16 @@
   :init
   (setq-default evil-escape-key-sequence "jk"
                 evil-escape-delay 0.15)
-  :config
-  (advice-add 'evil-escape-func :after #'save-buffer)
-  (evil-escape-mode))
+  :config (evil-escape-mode))
 
 (use-package evil-surround
   :after evil
   :config
   (global-evil-surround-mode 1))
 
-(evil-global-set-key 'normal (kbd "gcc") 'comment-line)
+(use-package evil-nerd-commenter
+  :after evil
+  :config (evilnc-default-hotkeys))
 
 (use-package evil-collection
   :after evil

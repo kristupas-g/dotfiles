@@ -1,0 +1,7 @@
+;;; ruby.el --- Working with ruby
+;;; Code:
+
+
+(provide 'ruby)
+
+;;; ruby.el ends here

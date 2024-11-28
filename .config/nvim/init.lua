@@ -201,13 +201,17 @@ require('lazy').setup({
     dependencies = {
       { 'nvim-lua/plenary.nvim' },
       { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
-      { 'nvim-telescope/telescope-fzy-native.nvim' },
+      { 'nvim-telescope/telescope-live-grep-args.nvim', version = '^1.0.0' },
+      { 'nvim-telescope/telescope-frecency.nvim', config = true },
     },
     config = function()
-      -- require('telescope').load_extension('fzf')
+      telescope = require('telescope')
+      telescope.load_extension('fzf')
+      telescope.load_extension('frecency')
+      telescope.load_extension('live_grep_args')
       local actions = require('telescope.actions')
 
-      require('telescope').setup({
+      telescope.setup({
         pickers = {
           find_files = {
             theme = 'ivy',
@@ -216,10 +220,6 @@ require('lazy').setup({
           },
         },
         defaults = {
-          history = {
-            path = '~/.local/share/nvim/databases/telescope_history.sqlite3',
-            limit = 100,
-          },
           mappings = {
             i = {
               ['<esc><esc>'] = false,
@@ -228,15 +228,11 @@ require('lazy').setup({
           },
         },
         extensions = {
-          -- fzf = {
-          --   fuzzy = true,
-          --   override_generic_sorter = true,
-          --   override_file_sorter = true,
-          --   case_mode = 'smart_case',
-          -- },
-          fzy_native = {
-            override_generic_sorter = false,
+          fzf = {
+            fuzzy = true,
+            override_generic_sorter = true,
             override_file_sorter = true,
+            case_mode = 'smart_case',
           },
         },
       })
@@ -245,7 +241,7 @@ require('lazy').setup({
       {
         '<leader>j',
         function()
-          require('telescope.builtin').find_files()
+          vim.cmd("Telescope frecency workspace=CWD theme=ivy previewer=false layout_config={height=0.50}")
         end,
       },
       {
