@@ -61,6 +61,7 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 vim.keymap.set('i', 'jk', '<Esc>', { noremap = true, silent = true })
 
+
 vim.api.nvim_create_user_command('Econf', function()
   vim.cmd('e ~/dotfiles/.config/nvim/init.lua')
 end, {})
@@ -71,6 +72,13 @@ local function lazygit()
 end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
+
+vim.keymap.set(
+  'n',
+  '<leader>c',
+  "<C-o>:let @+ = expand('%')<CR>",
+  { noremap = true, silent = true }
+)
 
 function Tmux_split(command_to_run)
   local current_pane = tonumber(vim.fn.system("tmux display-message -p '#P'"))
