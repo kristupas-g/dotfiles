@@ -127,6 +127,8 @@ end
 vim.api.nvim_create_user_command('Gh', OpenInGH, {})
 
 vim.keymap.set('n', '<leader>p', '<C-^>')
+vim.keymap.set('n', '<leader>qp', ':cprevious<CR>')
+vim.keymap.set('n', '<leader>qn', ':cnext<CR>')
 
 require('lazy').setup({
   'tpope/vim-sleuth',
