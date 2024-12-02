@@ -407,6 +407,7 @@ require('lazy').setup({
           map('gd', vim.lsp.buf.definition)
           map('<leader>rn', vim.lsp.buf.rename)
           map('<leader>.', vim.lsp.buf.code_action, { 'n', 'x' })
+          map('<leader>h', vim.lsp.buf.hover)
           map('<leader>en', vim.diagnostic.goto_next)
           map('<leader>ep', vim.diagnostic.goto_prev)
         end,
