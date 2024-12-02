@@ -61,7 +61,6 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 vim.keymap.set('i', 'jk', '<Esc>', { noremap = true, silent = true })
 
-
 vim.api.nvim_create_user_command('Econf', function()
   vim.cmd('e ~/dotfiles/.config/nvim/init.lua')
 end, {})
@@ -109,6 +108,23 @@ function Tmux_split(command_to_run)
 
   vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
 end
+
+OpenInGH = function()
+  local git_cmd = vim.system({'git', 'remote', 'get-url', 'origin'}):wait()
+
+  if git_cmd['code'] ~= 0 then
+    vim.notify('Not a git repository or origin is not set')
+    return
+  end
+
+  local remote = git_cmd['stdout']:match("^(.-)%.git")
+  local current_file = vim.fn.expand('%')
+
+  local url = string.format("%s/blob/master/%s", remote, current_file)
+  vim.system({"open", url})
+end
+
+vim.api.nvim_create_user_command('Gh', OpenInGH, {})
 
 vim.keymap.set('n', '<leader>p', '<C-^>')
 
@@ -249,7 +265,9 @@ require('lazy').setup({
       {
         '<leader>j',
         function()
-          vim.cmd("Telescope frecency workspace=CWD theme=ivy previewer=false layout_config={height=0.50}")
+          vim.cmd(
+            'Telescope frecency workspace=CWD theme=ivy previewer=false layout_config={height=0.50}'
+          )
         end,
       },
       {
