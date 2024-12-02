@@ -118,7 +118,7 @@ OpenInGH = function()
   end
 
   local remote = git_cmd['stdout']:match("^(.-)%.git")
-  local current_file = vim.fn.expand('%')
+  local current_file = vim.fn.expand('%:.')
 
   local url = string.format("%s/blob/master/%s", remote, current_file)
   vim.system({"open", url})
