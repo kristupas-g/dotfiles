@@ -231,7 +231,7 @@ require('lazy').setup({
       { 'nvim-telescope/telescope-frecency.nvim', config = true },
     },
     config = function()
-      telescope = require('telescope')
+      local telescope = require('telescope')
       telescope.load_extension('fzf')
       telescope.load_extension('frecency')
       telescope.load_extension('live_grep_args')
