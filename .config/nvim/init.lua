@@ -73,12 +73,11 @@ end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
 
-vim.keymap.set(
-  'n',
-  '<leader>c',
-  "<C-o>:let @+ = expand('%')<CR>",
-  { noremap = true, silent = true }
-)
+
+local copy_to_clipboard = function()
+  vim.cmd("let @+ = expand('%')")
+end
+vim.api.nvim_create_user_command('Cp', copy_to_clipboard, {})
 
 function Tmux_split(command_to_run)
   local current_pane = tonumber(vim.fn.system("tmux display-message -p '#P'"))
@@ -275,7 +274,7 @@ require('lazy').setup({
       {
         '<leader>w',
         function()
-          require('telescope.builtin').live_grep()
+          require("telescope").extensions.live_grep_args.live_grep_args()
         end,
       },
       {
