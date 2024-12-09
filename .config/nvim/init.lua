@@ -35,6 +35,7 @@ vim.opt.undofile = true
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.signcolumn = 'yes'
+vim.opt.relativenumber = true
 vim.opt.updatetime = 250
 vim.opt.timeoutlen = 300
 vim.opt.splitright = true
@@ -119,8 +120,14 @@ OpenInGH = function()
 
   local remote = git_cmd['stdout']:match("^(.-)%.git")
   local current_file = vim.fn.expand('%:.')
+  local line_no, _ = unpack(vim.api.nvim_win_get_cursor(0))
 
-  local url = string.format("%s/blob/master/%s", remote, current_file)
+  local url = string.format(
+    "%s/blob/master/%s#L%d",
+    remote,
+    current_file,
+    line_no
+  )
   vim.system({"open", url})
 end
 
@@ -139,13 +146,6 @@ require('lazy').setup({
     'sainnhe/gruvbox-material',
     config = function()
       vim.cmd('colorscheme gruvbox-material')
-    end,
-  },
-
-  {
-    'ggandor/leap.nvim',
-    config = function()
-      require('leap').create_default_mappings()
     end,
   },
 
