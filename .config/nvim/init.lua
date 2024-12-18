@@ -136,6 +136,9 @@ vim.keymap.set('n', '<leader>p', '<C-^>')
 vim.keymap.set('n', '<leader>qp', ':cprevious<CR>')
 vim.keymap.set('n', '<leader>qn', ':cnext<CR>')
 
+vim.keymap.set('n', '<C-d>', '<C-d>zz')
+vim.keymap.set('n', '<C-u>', '<C-u>zz')
+
 require('lazy').setup({
   'tpope/vim-sleuth',
 
