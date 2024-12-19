@@ -530,6 +530,4 @@ require('lazy').setup({
       },
     },
   },
-
-  { 'tpope/vim-rhubarb' },
 })
