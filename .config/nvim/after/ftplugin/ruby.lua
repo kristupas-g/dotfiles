@@ -40,7 +40,7 @@ vim.keymap.set('n', '<leader>w', function()
     .extensions
     .live_grep_args
     .live_grep_args({
-      default_text = '"" --glob !**_spec.rb --glob **.rb',
+      default_text = '"" --glob !**_spec.rb',
       attach_mappings = function()
           vim.schedule(function()
             vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], 3 })
