@@ -425,6 +425,13 @@ require('lazy').setup({
       local servers = {
         gopls = {},
         pyright = {},
+        ruby_lsp = {
+          mason = false,
+          cmd = { "mise", "x", "--", "ruby-lsp" },
+          filetypes = { "ruby" },
+          root_dir = require("lspconfig.util").root_pattern("Gemfile", ".git"),
+          settings = {},
+        },
         lua_ls = {
           on_init = function(client)
             if client.workspace_folders then
