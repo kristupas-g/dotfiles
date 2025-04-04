@@ -73,7 +73,6 @@ end
 
 vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
 
-
 local copy_to_clipboard = function()
   vim.cmd("let @+ = expand('%')")
 end
@@ -110,24 +109,19 @@ function Tmux_split(command_to_run)
 end
 
 OpenInGH = function()
-  local git_cmd = vim.system({'git', 'remote', 'get-url', 'origin'}):wait()
+  local git_cmd = vim.system({ 'git', 'remote', 'get-url', 'origin' }):wait()
 
   if git_cmd['code'] ~= 0 then
     vim.notify('Not a git repository or origin is not set')
     return
   end
 
-  local remote = git_cmd['stdout']:match("^(.-)%.git")
+  local remote = git_cmd['stdout']:match('^(.-)%.git')
   local current_file = vim.fn.expand('%:.')
   local line_no, _ = unpack(vim.api.nvim_win_get_cursor(0))
 
-  local url = string.format(
-    "%s/blob/master/%s#L%d",
-    remote,
-    current_file,
-    line_no
-  )
-  vim.system({"open", url})
+  local url = string.format('%s/blob/master/%s#L%d', remote, current_file, line_no)
+  vim.system({ 'open', url })
 end
 
 vim.api.nvim_create_user_command('Gh', OpenInGH, {})
@@ -231,7 +225,7 @@ require('lazy').setup({
       { 'nvim-lua/plenary.nvim' },
       { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
       { 'nvim-telescope/telescope-live-grep-args.nvim', version = '^1.0.0' },
-      { 'nvim-telescope/telescope-frecency.nvim', config = true },
+      { 'nvim-telescope/telescope-frecency.nvim', config = { db_safe_mode = false } },
     },
     config = function()
       local telescope = require('telescope')
@@ -278,7 +272,7 @@ require('lazy').setup({
       {
         '<leader>w',
         function()
-          require("telescope").extensions.live_grep_args.live_grep_args()
+          require('telescope').extensions.live_grep_args.live_grep_args()
         end,
       },
       {
@@ -427,9 +421,9 @@ require('lazy').setup({
         pyright = {},
         ruby_lsp = {
           mason = false,
-          cmd = { "mise", "x", "--", "ruby-lsp" },
-          filetypes = { "ruby" },
-          root_dir = require("lspconfig.util").root_pattern("Gemfile", ".git"),
+          cmd = { 'mise', 'x', '--', 'ruby-lsp' },
+          filetypes = { 'ruby' },
+          root_dir = require('lspconfig.util').root_pattern('Gemfile', '.git'),
           settings = {},
         },
         lua_ls = {
