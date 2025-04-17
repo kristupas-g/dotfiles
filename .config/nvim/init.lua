@@ -121,6 +121,7 @@ OpenInGH = function()
   local line_no, _ = unpack(vim.api.nvim_win_get_cursor(0))
 
   local url = string.format('%s/blob/master/%s#L%d', remote, current_file, line_no)
+  vim.notify(url)
   vim.system({ 'open', url })
 end
 
@@ -375,13 +376,14 @@ require('lazy').setup({
           require('conform').format({ async = true, lsp_format = 'fallback' })
         end,
         mode = '',
-        desc = '[F]ormat buffer',
+        desc = 'Format buffer',
       },
     },
     opts = {
       notify_on_error = false,
       formatters_by_ft = {
         lua = { 'stylua' },
+        go = { 'gofmt' },
       },
     },
   },
