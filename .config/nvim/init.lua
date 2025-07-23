@@ -50,6 +50,9 @@ vim.opt.swapfile = false
 vim.opt.laststatus = 3
 vim.opt.cmdheight = 0
 vim.opt.exrc = true
+
+vim.opt.background = 'light'
+
 Maxline = 80
 vim.cmd('set colorcolumn=' .. Maxline)
 
@@ -61,6 +64,10 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 vim.keymap.set('i', 'jk', '<Esc>', { noremap = true, silent = true })
+
+vim.api.nvim_create_user_command('Gcommit', function()
+  vim.fn.system('git add . && git commit -m "feat: changes"')
+end, {})
 
 vim.api.nvim_create_user_command('Econf', function()
   vim.cmd('e ~/dotfiles/.config/nvim/init.lua')
@@ -116,12 +123,16 @@ OpenInGH = function()
     return
   end
 
-  local remote = git_cmd['stdout']:match('^(.-)%.git')
+  local remote = git_cmd
+    .stdout
+    :gsub('\n', '') -- remove newline
+    :gsub('^git@', '')
+    :gsub('%.git$', '')
+    :gsub(':', '/')
   local current_file = vim.fn.expand('%:.')
   local line_no, _ = unpack(vim.api.nvim_win_get_cursor(0))
 
-  local url = string.format('%s/blob/master/%s#L%d', remote, current_file, line_no)
-  vim.notify(url)
+  local url = string.format('https://%s/blob/master/%s#L%d', remote, current_file, line_no)
   vim.system({ 'open', url })
 end
 
@@ -382,6 +393,7 @@ require('lazy').setup({
     opts = {
       notify_on_error = false,
       formatters_by_ft = {
+        yaml = { 'yamlfmt' },
         lua = { 'stylua' },
         go = { 'gofmt' },
       },
@@ -419,6 +431,7 @@ require('lazy').setup({
         vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
       local servers = {
+        yamlls = {},
         gopls = {},
         pyright = {},
         ruby_lsp = {
