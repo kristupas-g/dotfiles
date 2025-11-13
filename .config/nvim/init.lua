@@ -51,7 +51,19 @@ vim.opt.laststatus = 3
 vim.opt.cmdheight = 0
 vim.opt.exrc = true
 
-vim.opt.background = 'light'
+vim.opt.foldmethod = "expr"
+vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+vim.opt.foldcolumn = "0"
+vim.opt.foldtext = ""
+vim.opt.foldlevel = 99
+vim.opt.foldlevelstart = 99
+vim.opt.foldnestmax = 4
+-- zR open all folds
+-- zM close all open folds
+-- za toggles the fold at the cursor
+-- zk zj to move between folds
+
+vim.opt.background = 'dark'
 
 Maxline = 80
 vim.cmd('set colorcolumn=' .. Maxline)
@@ -145,6 +157,12 @@ vim.keymap.set('n', '<leader>qq', ':copen<CR>')
 
 vim.keymap.set('n', '<C-d>', '<C-d>zz')
 vim.keymap.set('n', '<C-u>', '<C-u>zz')
+
+vim.keymap.set('t', 'jk', '<C-\\><C-n>', {
+  noremap = true,
+  silent = true,
+  desc = "Exit terminal mode"
+})
 
 require('lazy').setup({
   'tpope/vim-sleuth',
@@ -285,6 +303,12 @@ require('lazy').setup({
         '<leader>w',
         function()
           require('telescope').extensions.live_grep_args.live_grep_args()
+        end,
+      },
+      {
+        '<leader>m',
+        function()
+          require('telescope.builtin').git_status()
         end,
       },
       {
@@ -496,15 +520,27 @@ require('lazy').setup({
     end,
   },
 
+  -- {
+  --   'zbirenbaum/copilot.lua',
+  --   event = 'LspAttach',
+  --   config = function()
+  --     require('copilot').setup({
+  --       panel = { enabled = false },
+  --       suggestion = { enabled = false },
+  --     })
+  --   end,
+  -- },
+  --
   {
-    'zbirenbaum/copilot.lua',
-    event = 'LspAttach',
+    'github/copilot.vim',
     config = function()
-      require('copilot').setup({
-        panel = { enabled = false },
-        suggestion = { enabled = false },
+      vim.keymap.set('i', '<Right>', 'copilot#Accept("\\<CR>")', {
+        expr = true,
+        replace_keycodes = false
       })
-    end,
+
+      vim.g.copilot_no_tab_map = true
+    end
   },
 
   {
@@ -546,5 +582,29 @@ require('lazy').setup({
         mode = 'n',
       },
     },
+  },
+  {
+    'coder/claudecode.nvim',
+    dependencies = { 'folke/snacks.nvim' },
+    config = true,
+    keys = {
+      { '<leader>a', nil, desc = 'AI/Claude Code' },
+      { '<leader>ac', '<cmd>ClaudeCode<cr>', desc = 'Toggle Claude' },
+      { '<leader>af', '<cmd>ClaudeCodeFocus<cr>', desc = 'Focus Claude' },
+      { '<leader>ar', '<cmd>ClaudeCode --resume<cr>', desc = 'Resume Claude' },
+      { '<leader>aC', '<cmd>ClaudeCode --continue<cr>', desc = 'Continue Claude' },
+      { '<leader>am', '<cmd>ClaudeCodeSelectModel<cr>', desc = 'Select Claude model' },
+      { '<leader>ab', '<cmd>ClaudeCodeAdd %<cr>', desc = 'Add current buffer' },
+      { '<leader>as', '<cmd>ClaudeCodeSend<cr>', mode = 'v', desc = 'Send to Claude' },
+      {
+        '<leader>as',
+        '<cmd>ClaudeCodeTreeAdd<cr>',
+        desc = 'Add file',
+        ft = { 'NvimTree', 'neo-tree', 'oil', 'minifiles' },
+      },
+      { '<leader>aa', '<cmd>ClaudeCodeDiffAccept<cr>', desc = 'Accept diff' },
+      { '<leader>ad', '<cmd>ClaudeCodeDiffDeny<cr>', desc = 'Deny diff' },
+    },
+    opts = {}
   },
 })
