@@ -21,6 +21,9 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+vim.env.JAVA_HOME = '/opt/homebrew/opt/openjdk'
+vim.env.PATH = vim.env.JAVA_HOME .. '/bin:' .. vim.env.PATH
+
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 vim.g.have_nerd_font = false
@@ -51,10 +54,10 @@ vim.opt.laststatus = 3
 vim.opt.cmdheight = 0
 vim.opt.exrc = true
 
-vim.opt.foldmethod = "expr"
-vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
-vim.opt.foldcolumn = "0"
-vim.opt.foldtext = ""
+vim.opt.foldmethod = 'expr'
+vim.opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+vim.opt.foldcolumn = '0'
+vim.opt.foldtext = ''
 vim.opt.foldlevel = 99
 vim.opt.foldlevelstart = 99
 vim.opt.foldnestmax = 4
@@ -161,8 +164,46 @@ vim.keymap.set('n', '<C-u>', '<C-u>zz')
 vim.keymap.set('t', 'jk', '<C-\\><C-n>', {
   noremap = true,
   silent = true,
-  desc = "Exit terminal mode"
+  desc = 'Exit terminal mode',
 })
+
+local function open_or_create_pr()
+  local file_dir
+  if vim.bo.filetype == 'oil' then
+    file_dir = require('oil').get_current_dir()
+  else
+    file_dir = vim.fn.expand('%:p:h')
+  end
+
+  if file_dir == '' or file_dir == nil then
+    vim.notify('Cannot determine file directory.', vim.log.levels.WARN)
+    return
+  end
+
+  local gh_command = 'CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD) && '
+    .. "DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name') && "
+    .. 'if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then exit 1; fi && '
+    .. 'git push --set-upstream origin "$CURRENT_BRANCH" && '
+    .. 'OPEN_PR_COUNT=$(gh pr list --head "$CURRENT_BRANCH" --state open --limit 1 --json url --jq \'length\') && '
+    .. 'if [ "$OPEN_PR_COUNT" -eq 0 ]; then '
+    .. 'gh pr create --fill --web; '
+    .. 'else '
+    .. 'gh pr view --web; '
+    .. 'fi'
+
+  local silent_command = '(' .. gh_command .. ') >/dev/null 2>&1'
+
+  vim.system({ 'sh', '-c', silent_command }, {
+    cwd = file_dir,
+  })
+end
+
+vim.keymap.set(
+	"n",
+	"<leader>gp",
+	open_or_create_pr,
+	{ desc = "Open or create pull request", silent = true }
+)
 
 require('lazy').setup({
   'tpope/vim-sleuth',
@@ -457,6 +498,7 @@ require('lazy').setup({
       local servers = {
         yamlls = {},
         gopls = {},
+        groovyls = {},
         pyright = {},
         ruby_lsp = {
           mason = false,
@@ -536,11 +578,11 @@ require('lazy').setup({
     config = function()
       vim.keymap.set('i', '<Right>', 'copilot#Accept("\\<CR>")', {
         expr = true,
-        replace_keycodes = false
+        replace_keycodes = false,
       })
 
       vim.g.copilot_no_tab_map = true
-    end
+    end,
   },
 
   {
@@ -605,6 +647,15 @@ require('lazy').setup({
       { '<leader>aa', '<cmd>ClaudeCodeDiffAccept<cr>', desc = 'Accept diff' },
       { '<leader>ad', '<cmd>ClaudeCodeDiffDeny<cr>', desc = 'Deny diff' },
     },
-    opts = {}
+    opts = {},
+  },
+
+  {
+    dir = vim.fn.expand('~/vinted/worktree-cli'),
+    name = 'gwt',
+    lazy = false,
+    config = function()
+      require('gwt').setup()
+    end,
   },
 })
