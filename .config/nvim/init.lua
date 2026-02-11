@@ -84,6 +84,80 @@ vim.api.nvim_create_user_command('Gcommit', function()
   vim.fn.system('git add . && git commit -m "feat: changes"')
 end, {})
 
+vim.api.nvim_create_user_command('Gmain', function()
+  local function check_status()
+    local status = vim.system({ 'git', 'status', '--porcelain' }):wait()
+    if status.code ~= 0 then
+      vim.notify('Not a git repository', vim.log.levels.ERROR)
+      return false
+    end
+    return status.stdout and status.stdout ~= ''
+  end
+
+  local function commit_changes()
+    vim.notify('Committing changes...', vim.log.levels.INFO)
+    local add_result = vim.system({ 'git', 'add', '.' }):wait()
+    if add_result.code ~= 0 then
+      vim.notify('Failed to stage changes', vim.log.levels.ERROR)
+      return false
+    end
+    local commit_result = vim.system({ 'git', 'commit', '-m', 'feat: checkpoint' }):wait()
+    if commit_result.code ~= 0 then
+      vim.notify('Failed to commit: ' .. (commit_result.stderr or ''), vim.log.levels.ERROR)
+      return false
+    end
+    return true
+  end
+
+  local function fetch()
+    vim.notify('Fetching...', vim.log.levels.INFO)
+    local fetch_result = vim.system({ 'git', 'fetch' }):wait()
+    if fetch_result.code ~= 0 then
+      vim.notify('Fetch failed: ' .. (fetch_result.stderr or ''), vim.log.levels.ERROR)
+      return false
+    end
+    return true
+  end
+
+  local function get_default_branch()
+    local main_check = vim.system({ 'git', 'show-ref', '--verify', 'refs/heads/main' }):wait()
+    if main_check.code == 0 then
+      return 'main'
+    end
+    return 'master'
+  end
+
+  local function switch_and_pull(branch)
+    vim.notify('Switching to ' .. branch .. '...', vim.log.levels.INFO)
+    local checkout_result = vim.system({ 'git', 'checkout', branch }):wait()
+    if checkout_result.code ~= 0 then
+      vim.notify('Failed to switch to ' .. branch .. ': ' .. (checkout_result.stderr or ''), vim.log.levels.ERROR)
+      return false
+    end
+    local pull_result = vim.system({ 'git', 'pull' }):wait()
+    if pull_result.code ~= 0 then
+      vim.notify('Failed to pull: ' .. (pull_result.stderr or ''), vim.log.levels.ERROR)
+      return false
+    end
+    return true
+  end
+
+  if check_status() then
+    if not commit_changes() then
+      return
+    end
+  end
+
+  if not fetch() then
+    return
+  end
+
+  local default_branch = get_default_branch()
+  if switch_and_pull(default_branch) then
+    vim.notify('On ' .. default_branch, vim.log.levels.INFO)
+  end
+end, {})
+
 vim.api.nvim_create_user_command('Econf', function()
   vim.cmd('e ~/dotfiles/.config/nvim/init.lua')
 end, {})
