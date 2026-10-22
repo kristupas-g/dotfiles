@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import os
+import time
+
+parser = argparse.ArgumentParser(description='Write a multi-root VS Code workspace from the git repositories directly under a directory.')
+parser.add_argument('root', nargs='?', default='~/vinted', help='directory holding the repositories (default ~/vinted)')
+parser.add_argument('--days', type=int, help='keep only repositories with git activity in the last N days')
+parser.add_argument('--include', action='append', default=[], metavar='NAME', help='repository to include regardless of --days (repeatable)')
+args = parser.parse_args()
+
+root = os.path.expanduser(args.root)
+out = os.path.join(root, os.path.basename(root) + '.code-workspace')
+
+
+def last_activity(repo):
+    stamps = []
+    for rel in ('index', 'HEAD', 'FETCH_HEAD', 'logs/HEAD'):
+        path = os.path.join(repo, '.git', rel)
+        if os.path.exists(path):
+            stamps.append(os.path.getmtime(path))
+    return max(stamps, default=0)
+
+
+repos = sorted(name for name in os.listdir(root) if os.path.exists(os.path.join(root, name, '.git')))
+if args.days is not None:
+    cutoff = time.time() - args.days * 86400
+    repos = [n for n in repos if n in args.include or last_activity(os.path.join(root, n)) >= cutoff]
+
+data = {}
+if os.path.exists(out):
+    with open(out) as f:
+        data = json.load(f)
+
+data['folders'] = [{'path': name} for name in repos]
+data.setdefault('settings', {})
+
+with open(out, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+
+print(f'{out}: {len(repos)} folders')
+for name in repos:
+    print(f'  {name}')
