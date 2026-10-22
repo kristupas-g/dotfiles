@@ -1,0 +1,55 @@
+onboarding = false
+[keys]
+prefix = "ctrl+a"
+
+close_pane = "prefix+q"
+close_tab = "prefix+ampersand"
+close_workspace = "prefix+shift+q"
+detach = "prefix+shift+d"
+
+new_tab = "prefix+c"
+rename_tab = "prefix+comma"
+rename_workspace = "prefix+$"
+rename_pane = "prefix+shift+p"
+previous_tab = "prefix+p"
+next_tab = ""
+switch_tab = "prefix+1..9"
+zoom = "prefix+z"
+edit_scrollback = "prefix+["
+cycle_pane_next = "prefix+o"
+last_pane = "prefix+;"
+
+split_vertical = "prefix+r"
+split_horizontal = "prefix+d"
+
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+resize_pane_left = "prefix+shift+h"
+resize_pane_down = "prefix+shift+j"
+resize_pane_up = "prefix+shift+k"
+resize_pane_right = "prefix+shift+l"
+
+swap_pane_left = "prefix+alt+h"
+swap_pane_down = "prefix+alt+j"
+swap_pane_up = "prefix+alt+k"
+swap_pane_right = "prefix+alt+l"
+
+reload_config = "prefix+%"
+
+[ui]
+tab_bar_position = "top"
+mouse_capture = true
+prompt_new_tab_name = false
+pane_outer_borders = false
+pane_gaps = false
+
+[[keys.command]]
+key = "prefix+n"
+type = "popup"
+command = "HERDR_ENV=1 /Users/kristupas.gaidys/vinted/worktree-cli/gwt-session /Users/kristupas.gaidys/vinted"
+description = "open repo or worktree"
+width = "80%"
+height = "60%"
