@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     nix-darwin = {
-      url = "github:LnL7/nix-darwin";
+      url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -14,7 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
       flake = false;
@@ -42,20 +42,18 @@
   outputs = inputs@{ self, nix-darwin, home-manager, ... }:
     let
       shared_config = { ... }: {
-        services.nix-daemon.enable = true;
         nix.settings.experimental-features = "nix-command flakes";
         programs.zsh.enable = true;
 
         system.configurationRevision = self.rev or self.dirtyRev or null;
         system.stateVersion = 4;
+        system.primaryUser = "kristupas";
 
         nixpkgs.config.allowUnfree = true;
 
-        nix.gc.user = "kristupas";
         nix.gc.automatic = true;
         nix.gc.interval.Hour = 3;
         nix.gc.options = "--delete-older-than 15d";
-        nix.optimise.user = "kristupas";
         nix.optimise.automatic = true;
         nix.optimise.interval.Hour = 4;
       };
@@ -69,6 +67,8 @@
             cleanup = "zap";
           };
 
+          taps = builtins.attrNames config.nix-homebrew.taps;
+
           casks = [
             "firefox"
             "spotify"
@@ -79,7 +79,7 @@
             "qbittorrent"
           ];
         };
-    };
+      };
     in
     {
       darwinConfigurations.kristupas_mac = nix-darwin.lib.darwinSystem {
