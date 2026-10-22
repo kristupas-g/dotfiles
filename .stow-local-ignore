@@ -1,1 +1,14 @@
-.zshrc
+^/\.git$
+^/\.stow-local-ignore$
+^/\.zshrc$
+^/\.claude$
+^/\.codegraph$
+^/README.*
+^/nix$
+^/aerospace$
+^/k9s$
+^/karabiner$
+^/lazygit$
+^/nvim$
+^/wezterm$
+.+~
