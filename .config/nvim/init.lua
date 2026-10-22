@@ -1,14 +1,19 @@
+if vim.fn.has('nvim-0.12') == 0 then
+  vim.api.nvim_echo({
+    {
+      'This config needs Neovim 0.12 or newer, found ' .. tostring(vim.version()) .. '.\n',
+      'ErrorMsg',
+    },
+    { 'Run: brew upgrade neovim && brew install tree-sitter-cli\n', 'WarningMsg' },
+  }, true, {})
+  return
+end
+
 local lazypath = vim.fn.stdpath('data') .. '/lazy/lazy.nvim'
-if not (vim.uv or vim.loop).fs_stat(lazypath) then
+if not vim.uv.fs_stat(lazypath) then
   local lazyrepo = 'https://github.com/folke/lazy.nvim.git'
-  local out = vim.fn.system({
-    'git',
-    'clone',
-    '--filter=blob:none',
-    '--branch=stable',
-    lazyrepo,
-    lazypath,
-  })
+  local out =
+    vim.fn.system({ 'git', 'clone', '--filter=blob:none', '--branch=stable', lazyrepo, lazypath })
   if vim.v.shell_error ~= 0 then
     vim.api.nvim_echo({
       { 'Failed to clone lazy.nvim:\n', 'ErrorMsg' },
@@ -21,225 +26,203 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+local in_vscode = vim.g.vscode ~= nil
+
 vim.env.JAVA_HOME = '/opt/homebrew/opt/openjdk'
 vim.env.PATH = vim.env.JAVA_HOME .. '/bin:' .. vim.env.PATH
 
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
-vim.g.have_nerd_font = false
-vim.opt.number = true
-vim.opt.mouse = 'a'
-vim.opt.showmode = false
+
+vim.opt.ignorecase = true
+vim.opt.smartcase = true
+vim.opt.updatetime = 250
+vim.opt.timeoutlen = 300
+vim.opt.hlsearch = false
+vim.opt.swapfile = false
+vim.opt.exrc = true
 vim.schedule(function()
   vim.opt.clipboard = 'unnamedplus'
 end)
-vim.opt.breakindent = true
-vim.opt.undofile = true
-vim.opt.ignorecase = true
-vim.opt.smartcase = true
-vim.opt.signcolumn = 'yes'
-vim.opt.relativenumber = true
-vim.opt.updatetime = 250
-vim.opt.timeoutlen = 300
-vim.opt.splitright = true
-vim.opt.splitbelow = true
-vim.opt.list = true
-vim.opt.inccommand = 'split'
-vim.opt.scrolloff = 999
-vim.opt.hlsearch = false
-vim.opt.cursorline = true
-vim.opt.wrap = false
-vim.opt.swapfile = false
-vim.opt.laststatus = 3
-vim.opt.cmdheight = 0
-vim.opt.exrc = true
 
-vim.opt.foldmethod = 'expr'
-vim.opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-vim.opt.foldcolumn = '0'
-vim.opt.foldtext = ''
-vim.opt.foldlevel = 99
-vim.opt.foldlevelstart = 99
-vim.opt.foldnestmax = 4
--- zR open all folds
--- zM close all open folds
--- za toggles the fold at the cursor
--- zk zj to move between folds
+if not in_vscode then
+  vim.opt.number = true
+  vim.opt.relativenumber = true
+  vim.opt.mouse = 'a'
+  vim.opt.showmode = false
+  vim.opt.breakindent = true
+  vim.opt.undofile = true
+  vim.opt.signcolumn = 'yes'
+  vim.opt.splitright = true
+  vim.opt.splitbelow = true
+  vim.opt.list = true
+  vim.opt.inccommand = 'split'
+  vim.opt.scrolloff = 999
+  vim.opt.cursorline = true
+  vim.opt.wrap = false
+  vim.opt.laststatus = 3
+  vim.opt.cmdheight = 0
+  vim.opt.colorcolumn = '80'
+  vim.opt.background = 'dark'
 
-vim.opt.background = 'dark'
+  vim.opt.foldmethod = 'expr'
+  vim.opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+  vim.opt.foldcolumn = '0'
+  vim.opt.foldtext = ''
+  vim.opt.foldlevel = 99
+  vim.opt.foldlevelstart = 99
+  vim.opt.foldnestmax = 4
 
-Maxline = 80
-vim.cmd('set colorcolumn=' .. Maxline)
+  vim.api.nvim_create_autocmd('TextYankPost', {
+    group = vim.api.nvim_create_augroup('highlight-yank', { clear = true }),
+    callback = function()
+      vim.hl.on_yank()
+    end,
+  })
 
-vim.api.nvim_create_autocmd('TextYankPost', {
-  group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
-  callback = function()
-    vim.highlight.on_yank()
-  end,
-})
+  vim.keymap.set('i', 'jk', '<Esc>', { noremap = true, silent = true })
+  vim.keymap.set(
+    't',
+    'jk',
+    '<C-\\><C-n>',
+    { noremap = true, silent = true, desc = 'Exit terminal mode' }
+  )
 
-vim.keymap.set('i', 'jk', '<Esc>', { noremap = true, silent = true })
+  vim.keymap.set('n', '<leader>p', '<C-^>')
+  vim.keymap.set('n', '<leader>qp', ':cprevious<CR>')
+  vim.keymap.set('n', '<leader>qn', ':cnext<CR>')
+  vim.keymap.set('n', '<leader>qq', ':copen<CR>')
+end
+
+vim.keymap.set('n', '<C-d>', '<C-d>zz')
+vim.keymap.set('n', '<C-u>', '<C-u>zz')
 
 vim.api.nvim_create_user_command('Gcommit', function()
   vim.fn.system('git add . && git commit -m "feat: changes"')
 end, {})
 
 vim.api.nvim_create_user_command('Gmain', function()
-  local function check_status()
-    local status = vim.system({ 'git', 'status', '--porcelain' }):wait()
-    if status.code ~= 0 then
-      vim.notify('Not a git repository', vim.log.levels.ERROR)
-      return false
-    end
-    return status.stdout and status.stdout ~= ''
+  local function run(cmd)
+    return vim.system(cmd):wait()
   end
 
-  local function commit_changes()
+  local status = run({ 'git', 'status', '--porcelain' })
+  if status.code ~= 0 then
+    vim.notify('Not a git repository', vim.log.levels.ERROR)
+    return
+  end
+
+  if status.stdout and status.stdout ~= '' then
     vim.notify('Committing changes...', vim.log.levels.INFO)
-    local add_result = vim.system({ 'git', 'add', '.' }):wait()
-    if add_result.code ~= 0 then
+    if run({ 'git', 'add', '.' }).code ~= 0 then
       vim.notify('Failed to stage changes', vim.log.levels.ERROR)
-      return false
+      return
     end
-    local commit_result = vim.system({ 'git', 'commit', '-m', 'feat: checkpoint' }):wait()
-    if commit_result.code ~= 0 then
-      vim.notify('Failed to commit: ' .. (commit_result.stderr or ''), vim.log.levels.ERROR)
-      return false
-    end
-    return true
-  end
-
-  local function fetch()
-    vim.notify('Fetching...', vim.log.levels.INFO)
-    local fetch_result = vim.system({ 'git', 'fetch' }):wait()
-    if fetch_result.code ~= 0 then
-      vim.notify('Fetch failed: ' .. (fetch_result.stderr or ''), vim.log.levels.ERROR)
-      return false
-    end
-    return true
-  end
-
-  local function get_default_branch()
-    local main_check = vim.system({ 'git', 'show-ref', '--verify', 'refs/heads/main' }):wait()
-    if main_check.code == 0 then
-      return 'main'
-    end
-    return 'master'
-  end
-
-  local function switch_and_pull(branch)
-    vim.notify('Switching to ' .. branch .. '...', vim.log.levels.INFO)
-    local checkout_result = vim.system({ 'git', 'checkout', branch }):wait()
-    if checkout_result.code ~= 0 then
-      vim.notify('Failed to switch to ' .. branch .. ': ' .. (checkout_result.stderr or ''), vim.log.levels.ERROR)
-      return false
-    end
-    local pull_result = vim.system({ 'git', 'pull' }):wait()
-    if pull_result.code ~= 0 then
-      vim.notify('Failed to pull: ' .. (pull_result.stderr or ''), vim.log.levels.ERROR)
-      return false
-    end
-    return true
-  end
-
-  if check_status() then
-    if not commit_changes() then
+    local commit = run({ 'git', 'commit', '-m', 'feat: checkpoint' })
+    if commit.code ~= 0 then
+      vim.notify('Failed to commit: ' .. (commit.stderr or ''), vim.log.levels.ERROR)
       return
     end
   end
 
-  if not fetch() then
+  vim.notify('Fetching...', vim.log.levels.INFO)
+  local fetch = run({ 'git', 'fetch' })
+  if fetch.code ~= 0 then
+    vim.notify('Fetch failed: ' .. (fetch.stderr or ''), vim.log.levels.ERROR)
     return
   end
 
-  local default_branch = get_default_branch()
-  if switch_and_pull(default_branch) then
-    vim.notify('On ' .. default_branch, vim.log.levels.INFO)
+  local branch = run({ 'git', 'show-ref', '--verify', 'refs/heads/main' }).code == 0 and 'main'
+    or 'master'
+  vim.notify('Switching to ' .. branch .. '...', vim.log.levels.INFO)
+  local checkout = run({ 'git', 'checkout', branch })
+  if checkout.code ~= 0 then
+    vim.notify(
+      'Failed to switch to ' .. branch .. ': ' .. (checkout.stderr or ''),
+      vim.log.levels.ERROR
+    )
+    return
   end
+  local pull = run({ 'git', 'pull' })
+  if pull.code ~= 0 then
+    vim.notify('Failed to pull: ' .. (pull.stderr or ''), vim.log.levels.ERROR)
+    return
+  end
+  vim.notify('On ' .. branch, vim.log.levels.INFO)
 end, {})
 
 vim.api.nvim_create_user_command('Econf', function()
   vim.cmd('e ~/dotfiles/.config/nvim/init.lua')
 end, {})
 
-local function lazygit()
-  local current_file_dir = vim.fn.expand('%:p:h')
-  vim.fn.system("tmux new-window 'cd " .. current_file_dir .. " && lazygit'")
-end
+vim.api.nvim_create_user_command('Cp', function()
+  vim.fn.setreg('+', vim.fn.expand('%'))
+end, {})
 
-vim.keymap.set('n', '<leader>g', lazygit, { noremap = true, silent = false })
-
-local copy_to_clipboard = function()
-  vim.cmd("let @+ = expand('%')")
-end
-vim.api.nvim_create_user_command('Cp', copy_to_clipboard, {})
-
-function Tmux_split(command_to_run)
-  local current_pane = tonumber(vim.fn.system("tmux display-message -p '#P'"))
-  local left_pane = tonumber(
-    vim.fn
-      .system(
-        "tmux list-panes -F '#{pane_index} #{pane_left}' | grep -v "
-          .. current_pane
-          .. " | awk '{print $1}'"
-      )
-      :match('%S+')
-  )
-
-  if left_pane == nil then
-    local current_file_dir = vim.fn.getcwd()
-    vim.fn.system('tmux split-window -h -c ' .. current_file_dir)
-
-    left_pane = tonumber(
-      vim.fn
-        .system(
-          "tmux list-panes -F '#{pane_index} #{pane_left}' | grep -v "
-            .. current_pane
-            .. " | awk '{print $1}'"
-        )
-        :match('%S+')
-    )
-  end
-
-  vim.fn.system('tmux send-keys -t ' .. left_pane .. " '" .. command_to_run .. "' C-m")
-end
-
-OpenInGH = function()
-  local git_cmd = vim.system({ 'git', 'remote', 'get-url', 'origin' }):wait()
-
-  if git_cmd['code'] ~= 0 then
-    vim.notify('Not a git repository or origin is not set')
+vim.api.nvim_create_user_command('Gh', function()
+  local remote = vim.system({ 'git', 'remote', 'get-url', 'origin' }):wait()
+  if remote.code ~= 0 then
+    vim.notify('Not a git repository or origin is not set', vim.log.levels.WARN)
     return
   end
+  local base = vim.trim(remote.stdout)
+  base = base:gsub('%.git$', '')
+  base = base:gsub('^git@([^:]+):', 'https://%1/')
+  base = base:gsub('^ssh://git@([^/]+)/', 'https://%1/')
 
-  local remote = git_cmd
-    .stdout
-    :gsub('\n', '') -- remove newline
-    :gsub('^git@', '')
-    :gsub('%.git$', '')
-    :gsub(':', '/')
-  local current_file = vim.fn.expand('%:.')
-  local line_no, _ = unpack(vim.api.nvim_win_get_cursor(0))
+  local head = vim.system({ 'git', 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD' }):wait()
+  local branch = 'master'
+  if head.code == 0 then
+    branch = vim.trim(head.stdout):gsub('^origin/', '')
+  end
 
-  local url = string.format('https://%s/blob/master/%s#L%d', remote, current_file, line_no)
-  vim.system({ 'open', url })
+  local root = vim.trim(vim.system({ 'git', 'rev-parse', '--show-toplevel' }):wait().stdout)
+  local file = vim.fn.expand('%:p'):sub(#root + 2)
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  vim.system({ 'open', string.format('%s/blob/%s/%s#L%d', base, branch, file, line) })
+end, {})
+
+if not in_vscode then
+  vim.keymap.set('n', '<leader>g', function()
+    if not vim.env.TMUX then
+      vim.notify('Not inside tmux', vim.log.levels.WARN)
+      return
+    end
+    local dir = vim.fn.expand('%:p:h')
+    vim.fn.system({ 'tmux', 'new-window', '-c', dir, 'lazygit' })
+  end, { noremap = true, silent = false })
 end
 
-vim.api.nvim_create_user_command('Gh', OpenInGH, {})
+function Tmux_split(command_to_run)
+  if in_vscode then
+    require('vscode_workflow').run_in_terminal(command_to_run)
+    return
+  end
+  if not vim.env.TMUX then
+    vim.notify('Not inside tmux', vim.log.levels.WARN)
+    return
+  end
+  local own = vim.env.TMUX_PANE
+  local function other_pane()
+    local out = vim.fn.system({ 'tmux', 'list-panes', '-F', '#{pane_id}' })
+    for id in out:gmatch('%S+') do
+      if id ~= own then
+        return id
+      end
+    end
+  end
 
-vim.keymap.set('n', '<leader>p', '<C-^>')
-vim.keymap.set('n', '<leader>qp', ':cprevious<CR>')
-vim.keymap.set('n', '<leader>qn', ':cnext<CR>')
-vim.keymap.set('n', '<leader>qq', ':copen<CR>')
-
-vim.keymap.set('n', '<C-d>', '<C-d>zz')
-vim.keymap.set('n', '<C-u>', '<C-u>zz')
-
-vim.keymap.set('t', 'jk', '<C-\\><C-n>', {
-  noremap = true,
-  silent = true,
-  desc = 'Exit terminal mode',
-})
+  local target = other_pane()
+  if not target then
+    vim.fn.system({ 'tmux', 'split-window', '-h', '-c', vim.fn.getcwd() })
+    target = other_pane()
+  end
+  if not target then
+    vim.notify('No tmux pane available to run the command in', vim.log.levels.ERROR)
+    return
+  end
+  vim.fn.system({ 'tmux', 'send-keys', '-t', target, command_to_run, 'C-m' })
+end
 
 local function open_or_create_pr()
   local file_dir
@@ -259,25 +242,23 @@ local function open_or_create_pr()
     .. 'if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then exit 1; fi && '
     .. 'git push --set-upstream origin "$CURRENT_BRANCH" && '
     .. 'OPEN_PR_COUNT=$(gh pr list --head "$CURRENT_BRANCH" --state open --limit 1 --json url --jq \'length\') && '
-    .. 'if [ "$OPEN_PR_COUNT" -eq 0 ]; then '
-    .. 'gh pr create --fill --web; '
-    .. 'else '
-    .. 'gh pr view --web; '
-    .. 'fi'
+    .. 'if [ "$OPEN_PR_COUNT" -eq 0 ]; then gh pr create --fill --web; else gh pr view --web; fi'
 
-  local silent_command = '(' .. gh_command .. ') >/dev/null 2>&1'
-
-  vim.system({ 'sh', '-c', silent_command }, {
-    cwd = file_dir,
-  })
+  vim.system({ 'sh', '-c', '(' .. gh_command .. ') >/dev/null 2>&1' }, { cwd = file_dir })
 end
 
-vim.keymap.set(
-	"n",
-	"<leader>gp",
-	open_or_create_pr,
-	{ desc = "Open or create pull request", silent = true }
-)
+if not in_vscode then
+  vim.keymap.set(
+    'n',
+    '<leader>gp',
+    open_or_create_pr,
+    { desc = 'Open or create pull request', silent = true }
+  )
+end
+
+if in_vscode then
+  require('vscode_workflow').setup()
+end
 
 require('lazy').setup({
   'tpope/vim-sleuth',
@@ -294,12 +275,8 @@ require('lazy').setup({
   {
     'Wansmer/treesj',
     lazy = false,
-    config = function()
-      require('treesj').setup({
-        use_default_keymaps = false,
-        max_join_length = 80,
-      })
-    end,
+    cond = true,
+    opts = { use_default_keymaps = false, max_join_length = 80 },
     keys = {
       {
         '<leader>/',
@@ -324,7 +301,6 @@ require('lazy').setup({
       vim.keymap.set('n', 'mm', function()
         harpoon.ui:toggle_quick_menu(harpoon:list())
       end)
-
       vim.keymap.set('n', 'ma', function()
         harpoon:list():select(1)
       end)
@@ -364,19 +340,15 @@ require('lazy').setup({
 
   {
     'nvim-telescope/telescope.nvim',
-    tag = '0.1.8',
     lazy = false,
     dependencies = {
-      { 'nvim-lua/plenary.nvim' },
+      'nvim-lua/plenary.nvim',
       { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
       { 'nvim-telescope/telescope-live-grep-args.nvim', version = '^1.0.0' },
-      { 'nvim-telescope/telescope-frecency.nvim', config = { db_safe_mode = false } },
+      'nvim-telescope/telescope-frecency.nvim',
     },
     config = function()
       local telescope = require('telescope')
-      telescope.load_extension('fzf')
-      telescope.load_extension('frecency')
-      telescope.load_extension('live_grep_args')
       local actions = require('telescope.actions')
 
       telescope.setup({
@@ -402,8 +374,15 @@ require('lazy').setup({
             override_file_sorter = true,
             case_mode = 'smart_case',
           },
+          frecency = {
+            db_safe_mode = false,
+          },
         },
       })
+
+      telescope.load_extension('fzf')
+      telescope.load_extension('frecency')
+      telescope.load_extension('live_grep_args')
     end,
     keys = {
       {
@@ -436,45 +415,87 @@ require('lazy').setup({
   },
 
   {
-    'pocco81/auto-save.nvim',
+    'okuuva/auto-save.nvim',
+    version = '^1.0.0',
     opts = {
-      enabled = true,
-      trigger_events = { 'InsertLeave' },
-      execution_message = { message = '' },
+      trigger_events = {
+        immediate_save = {},
+        defer_save = { 'InsertLeave' },
+        cancel_deferred_save = { 'InsertEnter' },
+      },
+      debounce_delay = 135,
       condition = function(buf)
-        if vim.bo[buf].filetype == 'harpoon' then
-          return false
-        end
-        return true
+        return vim.bo[buf].filetype ~= 'harpoon'
       end,
     },
   },
 
   {
     'nvim-treesitter/nvim-treesitter',
-    dependencies = { 'RRethy/nvim-treesitter-endwise' },
+    branch = 'main',
+    lazy = false,
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs',
-    opts = {
-      ensure_installed = {
+    dependencies = { 'RRethy/nvim-treesitter-endwise' },
+    config = function()
+      local ts = require('nvim-treesitter')
+      local wanted = {
         'bash',
         'diff',
+        'go',
+        'gomod',
+        'groovy',
         'html',
+        'json',
+        'jsonnet',
         'lua',
         'luadoc',
+        'markdown',
+        'markdown_inline',
+        'nix',
+        'python',
         'query',
+        'ruby',
         'vim',
         'vimdoc',
-        'json',
-        'go',
-        'ruby',
-        'nix',
-      },
-      auto_install = true,
-      highlight = { enable = true },
-      indent = { enable = true, disable = { 'ruby' } },
-      endwise = { enable = true },
-    },
+        'yaml',
+      }
+      local installed = ts.get_installed('parsers')
+      local missing = vim.tbl_filter(function(lang)
+        return not vim.tbl_contains(installed, lang)
+      end, wanted)
+      if #missing > 0 then
+        ts.install(missing)
+      end
+
+      local available = ts.get_available()
+      vim.api.nvim_create_autocmd('FileType', {
+        group = vim.api.nvim_create_augroup('treesitter-start', { clear = true }),
+        callback = function(ev)
+          local lang = vim.treesitter.language.get_lang(ev.match)
+          if not lang then
+            return
+          end
+
+          local function start()
+            if not vim.api.nvim_buf_is_valid(ev.buf) then
+              return
+            end
+            if not pcall(vim.treesitter.start, ev.buf, lang) then
+              return
+            end
+            if lang ~= 'ruby' then
+              vim.bo[ev.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+            end
+          end
+
+          if vim.tbl_contains(ts.get_installed('parsers'), lang) then
+            start()
+          elseif vim.tbl_contains(available, lang) then
+            ts.install({ lang }):await(start)
+          end
+        end,
+      })
+    end,
   },
 
   {
@@ -483,31 +504,24 @@ require('lazy').setup({
       'hrsh7th/cmp-nvim-lsp',
       'hrsh7th/cmp-path',
       'hrsh7th/cmp-buffer',
-      'hrsh7th/cmp-cmdline',
-      { 'L3MON4D3/LuaSnip', version = 'v2.*' },
-      {
-        'zbirenbaum/copilot-cmp',
-        event = 'LspAttach',
-        config = function()
-          require('copilot_cmp').setup()
-        end,
-      },
     },
     config = function()
       local cmp = require('cmp')
       cmp.setup({
         completion = { completeopt = 'menu,menuone,noinsert' },
+        snippet = {
+          expand = function(args)
+            vim.snippet.expand(args.body)
+          end,
+        },
         mapping = cmp.mapping.preset.insert({
           ['<Down>'] = cmp.mapping.select_next_item(),
           ['<Up>'] = cmp.mapping.select_prev_item(),
-
           ['<C-n>'] = cmp.mapping.scroll_docs(-4),
           ['<C-p>'] = cmp.mapping.scroll_docs(4),
-
           ['<Right>'] = cmp.mapping.confirm({ select = true }),
         }),
         sources = {
-          { name = 'copilot' },
           { name = 'nvim_lsp' },
           { name = 'path' },
           { name = 'buffer' },
@@ -542,120 +556,69 @@ require('lazy').setup({
   {
     'neovim/nvim-lspconfig',
     dependencies = {
-      { 'williamboman/mason.nvim', config = true },
-      'williamboman/mason-lspconfig.nvim',
+      { 'mason-org/mason.nvim', opts = {} },
+      'mason-org/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
       'hrsh7th/cmp-nvim-lsp',
     },
     config = function()
       vim.api.nvim_create_autocmd('LspAttach', {
-        group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
+        group = vim.api.nvim_create_augroup('lsp-attach', { clear = true }),
         callback = function(event)
           local map = function(keys, func, mode)
-            mode = mode or 'n'
-            vim.keymap.set(mode, keys, func, { buffer = event.buf })
+            vim.keymap.set(mode or 'n', keys, func, { buffer = event.buf })
           end
 
           map('gd', vim.lsp.buf.definition)
           map('<leader>rn', vim.lsp.buf.rename)
           map('<leader>.', vim.lsp.buf.code_action, { 'n', 'x' })
           map('<leader>h', vim.lsp.buf.hover)
-          map('<leader>en', vim.diagnostic.goto_next)
-          map('<leader>ep', vim.diagnostic.goto_prev)
+          map('<leader>en', function()
+            vim.diagnostic.jump({ count = 1, float = true })
+          end)
+          map('<leader>ep', function()
+            vim.diagnostic.jump({ count = -1, float = true })
+          end)
         end,
       })
 
-      local capabilities = vim.lsp.protocol.make_client_capabilities()
-      capabilities =
-        vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
+      vim.diagnostic.config({
+        virtual_text = true,
+        signs = false,
+        underline = false,
+        update_in_insert = false,
+      })
 
-      local servers = {
-        yamlls = {},
-        gopls = {},
-        groovyls = {},
-        pyright = {},
-        ruby_lsp = {
-          mason = false,
-          cmd = { 'mise', 'x', '--', 'ruby-lsp' },
-          filetypes = { 'ruby' },
-          root_dir = require('lspconfig.util').root_pattern('Gemfile', '.git'),
-          settings = {},
-        },
-        lua_ls = {
-          on_init = function(client)
-            if client.workspace_folders then
-              local path = client.workspace_folders[1].name
-              if
-                vim.loop.fs_stat(path .. '/.luarc.json')
-                or vim.loop.fs_stat(path .. '/.luarc.jsonc')
-              then
-                return
-              end
-            end
+      vim.lsp.config('*', {
+        capabilities = require('cmp_nvim_lsp').default_capabilities(),
+      })
 
-            client.config.settings.Lua = vim.tbl_deep_extend('force', client.config.settings.Lua, {
-              runtime = { version = 'LuaJIT' },
-              workspace = {
-                checkThirdParty = false,
-                library = { vim.env.VIMRUNTIME },
-              },
-            })
-          end,
-          settings = {
-            Lua = {},
+      vim.lsp.config('ruby_lsp', {
+        cmd = { 'mise', 'x', '--', 'ruby-lsp' },
+      })
+
+      vim.lsp.config('lua_ls', {
+        settings = {
+          Lua = {
+            runtime = { version = 'LuaJIT' },
+            workspace = {
+              checkThirdParty = false,
+              library = { vim.env.VIMRUNTIME },
+            },
           },
         },
-      }
-
-      require('mason').setup()
-
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua',
       })
-      require('mason-tool-installer').setup({ ensure_installed = ensure_installed })
 
       require('mason-lspconfig').setup({
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            server.capabilities =
-              vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
+        ensure_installed = { 'yamlls', 'gopls', 'groovyls', 'pyright', 'jsonnet_ls', 'lua_ls' },
+        automatic_enable = { exclude = { 'ruby_lsp', 'stylua' } },
       })
 
-      vim.lsp.handlers['textDocument/publishDiagnostics'] =
-        vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-          virtual_text = true,
-          signs = false,
-          underline = false,
-          update_in_insert = false,
-        })
-    end,
-  },
-
-  -- {
-  --   'zbirenbaum/copilot.lua',
-  --   event = 'LspAttach',
-  --   config = function()
-  --     require('copilot').setup({
-  --       panel = { enabled = false },
-  --       suggestion = { enabled = false },
-  --     })
-  --   end,
-  -- },
-  --
-  {
-    'github/copilot.vim',
-    config = function()
-      vim.keymap.set('i', '<Right>', 'copilot#Accept("\\<CR>")', {
-        expr = true,
-        replace_keycodes = false,
+      require('mason-tool-installer').setup({
+        ensure_installed = { 'stylua', 'yamlfmt' },
       })
 
-      vim.g.copilot_no_tab_map = true
+      vim.lsp.enable('ruby_lsp')
     end,
   },
 
@@ -699,37 +662,19 @@ require('lazy').setup({
       },
     },
   },
-  {
-    'coder/claudecode.nvim',
-    dependencies = { 'folke/snacks.nvim' },
-    config = true,
-    keys = {
-      { '<leader>a', nil, desc = 'AI/Claude Code' },
-      { '<leader>ac', '<cmd>ClaudeCode<cr>', desc = 'Toggle Claude' },
-      { '<leader>af', '<cmd>ClaudeCodeFocus<cr>', desc = 'Focus Claude' },
-      { '<leader>ar', '<cmd>ClaudeCode --resume<cr>', desc = 'Resume Claude' },
-      { '<leader>aC', '<cmd>ClaudeCode --continue<cr>', desc = 'Continue Claude' },
-      { '<leader>am', '<cmd>ClaudeCodeSelectModel<cr>', desc = 'Select Claude model' },
-      { '<leader>ab', '<cmd>ClaudeCodeAdd %<cr>', desc = 'Add current buffer' },
-      { '<leader>as', '<cmd>ClaudeCodeSend<cr>', mode = 'v', desc = 'Send to Claude' },
-      {
-        '<leader>as',
-        '<cmd>ClaudeCodeTreeAdd<cr>',
-        desc = 'Add file',
-        ft = { 'NvimTree', 'neo-tree', 'oil', 'minifiles' },
-      },
-      { '<leader>aa', '<cmd>ClaudeCodeDiffAccept<cr>', desc = 'Accept diff' },
-      { '<leader>ad', '<cmd>ClaudeCodeDiffDeny<cr>', desc = 'Deny diff' },
-    },
-    opts = {},
-  },
 
   {
     dir = vim.fn.expand('~/vinted/worktree-cli'),
     name = 'gwt',
     lazy = false,
+    cond = function()
+      return not in_vscode and vim.fn.isdirectory(vim.fn.expand('~/vinted/worktree-cli')) == 1
+    end,
     config = function()
       require('gwt').setup()
     end,
   },
+}, {
+  rocks = { enabled = false },
+  defaults = { cond = not in_vscode },
 })
