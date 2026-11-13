@@ -68,3 +68,8 @@ kind-clusters/
 !.config/herdr-app/mods/space-menu/
 .config/herdr-app/mods/space-menu/jsconfig.json
 .config/herdr-app/mods/space-menu/*.d.ts
+!.config/herdr-app/mods/gitview/
+.config/herdr-app/mods/gitview/jsconfig.json
+.config/herdr-app/mods/gitview/*.d.ts
+.config/herdr-app/mods/gitview/bin/
+.config/herdr-app/mods/gitview/config.json
