@@ -711,7 +711,7 @@ export class KubeView {
           .child(svg("icons/kubectl.svg").size(16).flex_none().text_color(t.accent))
           .child(this.dropButton(t, "kube-ctx", this.context ?? "context…", "Context (c, or :ctx <name>). Clusters from ~/.kube/config", (cx) => this.openPicker("context", cx), { tone: prod ? "blocked" : null, tag: prod ? "prod" : null }))
           .child(this.dropButton(t, "kube-ns", this.allNs ? "all namespaces" : this.namespace ?? "namespace…", "Namespace (n, or :ns <name>; 1–9 recent, 0 all)", (cx) => this.openPicker("namespace", cx)))
-          .child(this.iconButton(t, "kube-refresh", "mods/prs/refresh.svg", `Refreshed ${since}. Refresh now (r)${this.paused ? ". Auto-refresh is paused until then" : ""}`, (cx) => this.refresh(cx, true), { spin: this.loading }))
+          .child(this.iconButton(t, "kube-refresh", "mods/kube/icons/refresh.svg", `Refreshed ${since}. Refresh now (r)${this.paused ? ". Auto-refresh is paused until then" : ""}`, (cx) => this.refresh(cx, true), { spin: this.loading }))
           .child(this.iconButton(t, "kube-use", "mods/workspace-chrome/terminal.svg", this.current === this.context ? `${this.context} is kubectl's current context` : `Make ${this.context} kubectl's current context, for your shells`, (cx) => this.makeCurrent(cx), { on: this.current === this.context }))
           .child(div().flex_1())
           .when(Boolean(summary), (el) => el.child(div().text_size(11.5).text_color(summary[1]).child(summary[0]))),
