@@ -23,7 +23,7 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle, EditorState, Editor, VirtualListScrollHandle, Scrollbar, v_virtual_list } from "gpui-base";
-import { exec, focused, home, nextCommand, notify, props, run, setShared, settings, shared, spaces, theme } from "herdr";
+import { exec, focused, home, nextCommand, notify, panes, props, run, setShared, settings, shared, spaces, theme } from "herdr";
 import { randomBytes } from "crypto";
 import { PATH, kubectl, contexts, namespaces, workloads, pods, table, apiResources, useContext, health, hpaLine, age, authError, RESOURCE, del, restart, rolloutAction } from "./kubectl.js";
 
@@ -128,7 +128,8 @@ export class KubeView {
         this.current = current;
         if (!this.context || !list.some((c) => c.name === this.context)) this.context = current ?? list[0]?.name ?? null;
         if (!this.namespace) this.namespace = list.find((c) => c.name === this.context)?.namespace ?? "default";
-        this.persist();
+        setShared(LAST, { context: this.context, namespace: this.namespace });
+        this.rename(true);
       } catch (e) {
         this.error = `kubeconfig: ${String(e?.message ?? e)}`;
       }
@@ -152,6 +153,19 @@ export class KubeView {
 
   persist() {
     setShared(LAST, { context: this.context, namespace: this.namespace });
+    this.rename();
+  }
+
+  // Names this copy's tab "<context> - <namespace>". The tab is the focused
+  // one when it holds a kube pane: at boot the fresh tab (still named "k8s"
+  // by kube.open), later the tab the person is changing. Any other tab is left alone.
+  rename(fresh = false) {
+    const tab = focused()?.tab;
+    if (!tab || !panes().some((p) => p.tab === tab && p.mod === "kube")) return;
+    const t = spaces().flatMap((s) => s.tabs).find((x) => x.id === tab);
+    if (!t || (fresh && t.name !== "k8s")) return;
+    const name = `${this.context ?? "k8s"} - ${this.allNs ? "all" : this.namespace ?? "?"}`;
+    if (t.name !== name) run("tab.rename", { id: tab, name });
   }
 
   recent() {
@@ -263,6 +277,7 @@ export class KubeView {
   toggleAll(cx) {
     this.allNs = !this.allNs;
     this.reset();
+    this.rename();
     cx.notify();
     this.refresh(cx, true);
   }

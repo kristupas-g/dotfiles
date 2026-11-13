@@ -74,12 +74,10 @@ const EXTRA = [
     } },
   { name: "mod.open", args: { name: "repo-picker" }, group: "Space", title: "New space from a repo…", words: "vinted repo folder new space", act: () => run("mod.open", { name: "repo-picker" }) },
   { name: "mod.open", args: { name: "space-picker" }, group: "Space", title: "Go to space…", words: "switch jump find space", act: () => run("mod.open", { name: "space-picker" }) },
-  // The kube mod's tab in this space (the same as cmd-k, `kube.open`).
-  { name: "kube.open", args: {}, group: "Tab", title: "Kubernetes: workloads and pods…", words: "k8s kube kubectl cluster namespace pods deployments",
+  // A new tab of the kube mod in this space (the same as cmd-k, `kube.open`); the view names it "<context> - <namespace>".
+  { name: "kube.open", args: {}, group: "Tab", title: "New Kubernetes tab (workloads, pods, any resource)", words: "k8s kube kubectl cluster namespace pods deployments",
     act: () => {
       const sp = spaces().find((s) => s.active);
-      const tab = sp?.tabs.find((t) => t.name === "k8s");
-      if (tab) return run("tab.select", { id: tab.id });
       run("tab.new", { name: "k8s", ...(sp ? { space: sp.id } : {}), mod: "kube", props: {} });
     } },
   // The spaces-pinned sidebar's pins (shared "spaces-pinned.ids"), for the shown space.

@@ -6,8 +6,8 @@
 //
 // With props { role: "commands" } it draws nothing: the floating block in the
 // layout that takes `kube.open` (cmd-k in keys.json; also from the palette and
-// `herdr-app do kube.open`) and opens, or goes to, the "k8s" tab of the shown
-// space.
+// `herdr-app do kube.open`) and opens a new tab of the mod in the shown space:
+// as many as you like, each named "<context> - <namespace>" by the view.
 
 import { View, div } from "gpui-kit";
 import { nextCommand, props, run, spaces } from "herdr";
@@ -17,8 +17,6 @@ const TAB = "k8s";
 
 export function openTab() {
   const sp = spaces().find((s) => s.active);
-  const tab = sp?.tabs.find((t) => t.name === TAB);
-  if (tab) return run("tab.select", { id: tab.id });
   run("tab.new", { name: TAB, ...(sp ? { space: sp.id } : {}), mod: "kube", props: {} });
 }
 
