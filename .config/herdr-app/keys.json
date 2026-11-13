@@ -67,6 +67,14 @@
     "cmd-shift-i": "mod.open:new-chat",
     "cmd-alt-t": "mod.open:auto-title"
   },
+  "mod:gitview": {
+    "shift-p": "git-actions.push",
+    "o": "git-actions.pr"
+  },
+  "mod:gitview-diff": {
+    "shift-p": "git-actions.push",
+    "o": "git-actions.pr"
+  },
   "terminal": {
     "cmd-f": "terminal.search",
     "cmd-c": "terminal.copy",

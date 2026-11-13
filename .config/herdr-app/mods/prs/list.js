@@ -5,7 +5,7 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { layout, run, shared, spaces, theme } from "herdr";
+import { exec, layout, notify, run, shared, spaces, theme } from "herdr";
 import { ghJson, openUrl, duration, kind, check, buildUrl, jenkins, openSpaceFor, REFRESH } from "./gh.js";
 
 const EVERY = 60_000;
@@ -152,6 +152,7 @@ export class PullRequestList {
               .gap(4)
               .items_center()
               .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(pr.draft ? t.dim : t.foreground).child(pr.title))
+              .child(this.linkButton(t, pr))
               .child(this.spaceButton(t, pr)),
           )
           .child(
@@ -166,6 +167,29 @@ export class PullRequestList {
               .child(div().child(duration(now - pr.updated))),
           ),
       );
+  }
+
+  // Puts the PR's link on the clipboard.
+  linkButton(t, pr) {
+    return div()
+      .id(`link-${pr.key}`)
+      .size(18)
+      .flex_none()
+      .flex()
+      .items_center()
+      .justify_center()
+      .rounded(4)
+      .text_color(t.dim)
+      .cursor_pointer()
+      .hover((s) => s.text_color(t.foreground).bg(t.raised))
+      .tooltip("Copy the PR's link")
+      .on_click((_e, cx) => {
+        cx.stop_propagation();
+        exec("/bin/sh", ["-c", 'printf "%s" "$1" | pbcopy', "sh", pr.url])
+          .then(() => notify({ title: "Link copied", body: pr.url, level: "info", timeout: 2500 }))
+          .catch((e) => notify({ title: "Couldn't copy", body: String(e?.message ?? e), level: "error" }));
+      })
+      .child(svg("mods/prs/link.svg").size(12));
   }
 
   // Opens the PR's branch as a space (gh.js openSpaceFor), as the PR tab's Space button does.
