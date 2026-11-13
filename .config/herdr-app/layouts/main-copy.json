@@ -84,7 +84,7 @@
           "id": "tabs",
           "type": "block",
           "content": {
-            "mod": "tabs"
+            "mod": "tabs-icons"
           },
           "size": {
             "px": 42

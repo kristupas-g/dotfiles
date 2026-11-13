@@ -1,0 +1,7 @@
+{
+  "programs": {
+    "nvim": { "icon": "my-icons/nvim.svg", "tint": false },
+    "lazygit": { "icon": "my-icons/lazygit.svg", "tint": false },
+    "shell": { "icon": "my-icons/shell.svg", "tint": false }
+  }
+}
