@@ -1,0 +1,10 @@
+{
+  "claude": {
+    "args": [
+      "--model",
+      "fable",
+      "--permission-mode",
+      "auto"
+    ]
+  }
+}
