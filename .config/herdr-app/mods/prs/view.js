@@ -5,8 +5,8 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle, Scrollbar, TextView, v_virtual_list } from "gpui-base";
-import { exec, home, notify, props, run, setShared, settings, spaces, theme } from "herdr";
-import { gh, ghJson, openUrl, duration, kind, check, buildUrl, firstLine, REFRESH } from "./gh.js";
+import { notify, props, run, setShared, settings, theme } from "herdr";
+import { gh, ghJson, openUrl, duration, kind, check, buildUrl, firstLine, openSpaceFor, REFRESH } from "./gh.js";
 import { parseDiff, threads, buildRows } from "./diff.js";
 
 const MAX_DIFF = 2_000_000;
@@ -108,45 +108,12 @@ export class PullRequestView {
     });
   }
 
-  // A space for this PR: the repo's clone in ~/vinted, on the PR's branch. When
-  // the clone is on another branch, a git worktree of it at Herdr's place
-  // (~/.herdr/worktrees/<repo>/<branch>) so the clone stays as it is. A space
-  // already on that folder is shown instead of made again.
   openSpace(cx) {
-    const pr = this.pr;
-    if (!pr || this.busy) return;
+    if (!this.pr || this.busy) return;
     this.busy = "space";
     cx.notify();
     cx.spawn(async (cx) => {
-      const repoName = this.repo.split("/").pop();
-      const clone = `${home()}/vinted/${repoName}`;
-      const branch = pr.headRefName;
-      const git = async (args, cwd = clone) => {
-        const r = await exec("git", args, { cwd, timeout: 120000 });
-        if (r.code !== 0) throw new Error(firstLine(r.stderr) || `git ${args[0]} failed`);
-        return r.stdout.trim();
-      };
-      try {
-        if ((await exec("git", ["rev-parse", "--is-inside-work-tree"], { cwd: clone }).catch(() => ({ code: 1 }))).code !== 0) throw new Error(`No clone at ~/vinted/${repoName}`);
-        // The branch, fetched: a fork's through the PR ref.
-        if (pr.isCrossRepository) await git(["fetch", "origin", `+refs/pull/${this.number}/head:refs/heads/${branch}`]);
-        else await git(["fetch", "origin", branch]);
-        let folder = clone;
-        if ((await git(["branch", "--show-current"])) !== branch) {
-          const list = await git(["worktree", "list", "--porcelain"]);
-          const at = list.split("\n\n").map((b) => b.split("\n")).find((b) => b.some((l) => l === `branch refs/heads/${branch}`));
-          folder = at ? at[0].replace(/^worktree /, "") : `${home()}/.herdr/worktrees/${repoName}/${branch}`;
-          if (!at) {
-            const local = (await exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: clone })).code === 0;
-            await git(["worktree", "add", folder, ...(local ? [branch] : ["-b", branch, `origin/${branch}`])]);
-          }
-        }
-        const open = spaces().find((s) => !s.machine && s.folder === folder);
-        if (open) run("space.select", { id: open.id });
-        else run("space.new", { name: `${repoName} #${this.number}`, folder });
-      } catch (e) {
-        notify({ title: `Couldn't make a space for #${this.number}`, body: String(e?.message ?? e), level: "error" });
-      }
+      await openSpaceFor({ repo: this.repo, number: this.number, headRefName: this.pr.headRefName, isCrossRepository: this.pr.isCrossRepository });
       this.busy = null;
       cx.notify();
     });

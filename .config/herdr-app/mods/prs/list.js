@@ -6,11 +6,11 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { layout, run, shared, spaces, theme } from "herdr";
-import { ghJson, openUrl, duration, kind, check, buildUrl, jenkins, REFRESH } from "./gh.js";
+import { ghJson, openUrl, duration, kind, check, buildUrl, jenkins, openSpaceFor, REFRESH } from "./gh.js";
 
 const EVERY = 60_000;
 const QUERY = `query { search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 100) { nodes { ... on PullRequest {
-  number title url isDraft updatedAt reviewDecision repository { nameWithOwner }
+  number title url isDraft updatedAt reviewDecision headRefName isCrossRepository repository { nameWithOwner }
   commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 50) { nodes {
     __typename ... on StatusContext { context state targetUrl } ... on CheckRun { name status conclusion detailsUrl } } } } } } } } } } }`;
 
@@ -36,6 +36,8 @@ function normalize(n) {
     url: n.url,
     draft: n.isDraft,
     review: n.reviewDecision,
+    headRefName: n.headRefName,
+    isCrossRepository: n.isCrossRepository,
     updated: Date.parse(n.updatedAt),
     ci: kind(rollup?.state),
     checks,
@@ -61,6 +63,7 @@ export class PullRequestList {
     this.at = 0;
     this.stamp = shared(REFRESH) ?? null;
     this.folded = new Set();
+    this.opening = new Set();
     cx.timer.every(EVERY, (cx) => this.refresh(cx));
     this.refresh(cx);
     cx.spawn(async (cx) => {
@@ -144,7 +147,13 @@ export class PullRequestList {
         v_flex()
           .flex_1()
           .min_w(0)
-          .child(div().truncate().text_size(12.5).text_color(pr.draft ? t.dim : t.foreground).child(pr.title))
+          .child(
+            h_flex()
+              .gap(4)
+              .items_center()
+              .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(pr.draft ? t.dim : t.foreground).child(pr.title))
+              .child(this.spaceButton(t, pr)),
+          )
           .child(
             h_flex()
               .gap(5)
@@ -157,6 +166,35 @@ export class PullRequestList {
               .child(div().child(duration(now - pr.updated))),
           ),
       );
+  }
+
+  // Opens the PR's branch as a space (gh.js openSpaceFor), as the PR tab's Space button does.
+  spaceButton(t, pr) {
+    const busy = this.opening.has(pr.key);
+    return div()
+      .id(`space-${pr.key}`)
+      .size(18)
+      .flex_none()
+      .flex()
+      .items_center()
+      .justify_center()
+      .rounded(4)
+      .text_color(t.dim)
+      .cursor_pointer()
+      .hover((s) => s.text_color(t.foreground).bg(t.raised))
+      .tooltip(busy ? "Opening a space…" : `Open as a space (${pr.headRefName})`)
+      .on_click((_e, cx) => {
+        cx.stop_propagation();
+        if (busy) return;
+        this.opening.add(pr.key);
+        cx.notify();
+        cx.spawn(async (cx) => {
+          await openSpaceFor(pr);
+          this.opening.delete(pr.key);
+          cx.notify();
+        });
+      })
+      .child(busy ? svg("mods/workspace-chrome/spinner.svg").size(12).spin(900) : svg("mods/workspace-chrome/folder-plus.svg").size(12));
   }
 
   // A repo's header; it folds the repo's rows.
