@@ -23,3 +23,8 @@ kind-clusters/
 !.config/herdr-app/layouts/
 .config/herdr-app/layouts/*
 !.config/herdr-app/layouts/main-copy.json
+!.config/herdr-app/data/
+.config/herdr-app/data/*
+!.config/herdr-app/data/herdr-chat/
+.config/herdr-app/data/herdr-chat/*
+!.config/herdr-app/data/herdr-chat/keys.json

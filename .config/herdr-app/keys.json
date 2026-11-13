@@ -62,7 +62,8 @@
     "cmd-shift-e": "herdr-nvim.reveal",
     "cmd-shift-g": "mod.open:gitview-sidebar",
     "cmd-g": "mod.open:gitview-tab",
-    "cmd-i": "mod.open:new-chat",
+    "cmd-i": "new-chat.claude",
+    "cmd-shift-i": "mod.open:new-chat",
     "cmd-alt-t": "mod.open:auto-title"
   },
   "terminal": {
