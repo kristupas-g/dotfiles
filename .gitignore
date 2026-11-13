@@ -33,6 +33,9 @@ kind-clusters/
 !.config/herdr-app/mods/space-tabs/
 .config/herdr-app/mods/space-tabs/jsconfig.json
 .config/herdr-app/mods/space-tabs/*.d.ts
+!.config/herdr-app/mods/prs/
+.config/herdr-app/mods/prs/jsconfig.json
+.config/herdr-app/mods/prs/*.d.ts
 !.config/herdr-app/my-icons/
 !.config/herdr-app/mods/tabs-icons/
 .config/herdr-app/mods/tabs-icons/jsconfig.json
