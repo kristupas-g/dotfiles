@@ -7,7 +7,7 @@
 //
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { commands, layouts, keys, run, theme, props, closeOverlay, openOverlay, shared, window as win, focused, spaces } from "herdr";
+import { commands, layouts, keys, run, theme, props, closeOverlay, openOverlay, shared, setShared, window as win, focused, spaces } from "herdr";
 import { randomBytes } from "crypto";
 
 // The list keeps one height while you move: rows and group titles have fixed
@@ -81,6 +81,14 @@ const EXTRA = [
       const tab = sp?.tabs.find((t) => t.name === "k8s");
       if (tab) return run("tab.select", { id: tab.id });
       run("tab.new", { name: "k8s", ...(sp ? { space: sp.id } : {}), mod: "kube", props: {} });
+    } },
+  // The spaces-pinned sidebar's pins (shared "spaces-pinned.ids"), for the shown space.
+  { name: "spaces-pinned.pin", args: {}, group: "Space", title: "Pin or unpin this space", words: "pin unpin favourite top space",
+    act: () => {
+      const s = spaces().find((w) => w.active);
+      if (!s) return;
+      const ids = Array.isArray(shared("spaces-pinned.ids")) ? shared("spaces-pinned.ids") : [];
+      setShared("spaces-pinned.ids", ids.includes(s.id) ? ids.filter((id) => id !== s.id) : [...ids, s.id]);
     } },
 ];
 

@@ -1,11 +1,15 @@
 // space-picker: go to a space. Opened with cmd-p (`mod.open:space-picker` in
 // keys.json). Lists every space with its folder, branch and agent state; type
-// to filter, ↑/↓ to move, Enter shows it, Esc closes. The shipped picker (tabs
-// and agents too) stays in the palette as "Go to space or tab…".
+// to filter, ↑/↓ to move, Enter shows it, Esc closes. Pinned spaces (shared
+// "spaces-pinned.ids", set from the sidebar) come first and carry a pin. The
+// shipped picker (tabs and agents too) stays in the palette as "Go to space or tab…".
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
-import { closeOverlay, home, props, run, spaces, theme } from "herdr";
+import { closeOverlay, home, props, run, shared, spaces, theme } from "herdr";
+
+const PINNED = "spaces-pinned.ids";
+const pinned = () => new Set(Array.isArray(shared(PINNED)) ? shared(PINNED) : []);
 
 const ROW = 34;
 
@@ -44,10 +48,11 @@ export default class SpacePicker extends View {
 
   shown() {
     const q = this.filter.trim().toLowerCase();
+    const pins = pinned();
     return spaces()
       .map((s) => ({ s, score: Math.max(score(s.name.toLowerCase(), q), score(short(s.folder).toLowerCase(), q) / 2, score((s.branch ?? "").toLowerCase(), q) / 2) }))
       .filter((r) => r.score > 0)
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score || pins.has(b.s.id) - pins.has(a.s.id))
       .map((r) => r.s);
   }
 
@@ -80,6 +85,7 @@ export default class SpacePicker extends View {
         .on_click((_e, cx) => this.go(s, cx))
         .child(st === "working" ? svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900) : div().w(12).flex_none().text_color(t[st] ?? t.dim).child(st ? "●" : "·"))
         .child(div().flex_none().text_color(s.active ? t.foreground : t.foreground).font_medium().child(s.name))
+        .when(pinned().has(s.id), (el) => el.child(svg("mods/workspace-chrome/pin.svg").size(11).flex_none().text_color(t.dim)))
         .when(Boolean(s.branch) && /\w/.test(s.branch), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(s.branch)))
         .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(t.dim).text_ellipsis_start().child(short(s.folder)))
         .when(Boolean(s.machine), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(s.machine)))

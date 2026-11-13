@@ -62,3 +62,9 @@ kind-clusters/
 !.config/herdr-app/mods/tabs-icons/
 .config/herdr-app/mods/tabs-icons/jsconfig.json
 .config/herdr-app/mods/tabs-icons/*.d.ts
+!.config/herdr-app/mods/spaces-pinned/
+.config/herdr-app/mods/spaces-pinned/jsconfig.json
+.config/herdr-app/mods/spaces-pinned/*.d.ts
+!.config/herdr-app/mods/space-menu/
+.config/herdr-app/mods/space-menu/jsconfig.json
+.config/herdr-app/mods/space-menu/*.d.ts

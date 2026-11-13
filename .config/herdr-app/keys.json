@@ -73,13 +73,15 @@
     "o": "git-actions.pr",
     "space": "gitview.button:stage:section:changes",
     "i": "git-actions.ignore",
-    "shift-i": "git-actions.exclude"
+    "shift-i": "git-actions.exclude",
+    "c": "git-actions.commit"
   },
   "mod:gitview-diff": {
     "shift-p": "git-actions.push",
     "o": "git-actions.pr",
     "i": "git-actions.ignore",
-    "shift-i": "git-actions.exclude"
+    "shift-i": "git-actions.exclude",
+    "c": "git-actions.commit"
   },
   "terminal": {
     "cmd-f": "terminal.search",
