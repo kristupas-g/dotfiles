@@ -1,6 +1,7 @@
 // status-bar: the bottom bar, from Herdr's workspace-status without the machine
 // name and the agent count: the FortiClient VPN state (green connected, red
-// not; a click connects to the "vinted-vpn v2" profile), the branch, "N needs
+// not; a click toggles it: connects to the "vinted-vpn v2" profile, or
+// disconnects), the branch, "N needs
 // you" when an agent is blocked, and the palette hint (palette-plus, as
 // keys.json binds it).
 //
@@ -8,8 +9,8 @@
 // list` shows as "VPN"; its state is `scutil --nc status VPN`. Which profile
 // it dials is the VpnName in the extension's preferences (defaults domain
 // com.fortinet.forticlient.macos.vpn): a click sets it to VPN_PROFILE and
-// starts the service. If that doesn't take within a few seconds, FortiClient
-// itself is opened to connect from.
+// starts the service; connected, a click stops it (`scutil --nc stop VPN`). If
+// connecting doesn't take within a few seconds, FortiClient itself is opened.
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
@@ -39,9 +40,22 @@ export default class StatusBar extends View {
     });
   }
 
-  connect(cx) {
+  // Connected: stop the VPN. Otherwise: connect to VPN_PROFILE.
+  toggle(cx) {
     if (this.connecting) return;
-    if (this.vpn.state === "Connected") return notify({ title: "VPN", body: `Connected to ${this.vpn.name ?? "the VPN"}`, level: "info" });
+    if (this.vpn.state !== "Connected") return this.connect(cx);
+    this.connecting = true;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const r = await exec("/usr/sbin/scutil", ["--nc", "stop", VPN_SERVICE], { timeout: 10000 }).catch((e) => ({ code: 1, stderr: String(e?.message ?? e) }));
+      if (r.code !== 0) notify({ title: "VPN", body: r.stderr.trim() || "scutil couldn't stop the VPN", level: "error" });
+      await cx.sleep(1500);
+      this.connecting = false;
+      this.poll(cx);
+    });
+  }
+
+  connect(cx) {
     this.connecting = true;
     cx.notify();
     cx.spawn(async (cx) => {
@@ -82,7 +96,7 @@ export default class StatusBar extends View {
     const on = this.vpn.state === "Connected";
     const busy = this.connecting || this.vpn.state === "Connecting";
     const color = on ? t.ansi2 : this.vpn.state === "unknown" ? t.dim : t.blocked;
-    const text = busy ? "VPN connecting…" : on ? `VPN ${this.vpn.name ?? "on"}` : "VPN off";
+    const text = busy ? "VPN…" : on ? `VPN ${this.vpn.name ?? "on"}` : "VPN off";
     return h_flex()
       .id("vpn")
       .h(20)
@@ -92,8 +106,8 @@ export default class StatusBar extends View {
       .rounded(5)
       .cursor_pointer()
       .hover((s) => s.bg(t.hover))
-      .tooltip(on ? `FortiClient: connected to ${this.vpn.name ?? "the VPN"}` : `FortiClient: ${this.vpn.state.toLowerCase()}. Click to connect to ${VPN_PROFILE}`)
-      .on_click((_e, cx) => this.connect(cx))
+      .tooltip(on ? `FortiClient: connected to ${this.vpn.name ?? "the VPN"}. Click to disconnect` : `FortiClient: ${this.vpn.state.toLowerCase()}. Click to connect to ${VPN_PROFILE}`)
+      .on_click((_e, cx) => this.toggle(cx))
       .child(busy ? svg("mods/workspace-chrome/spinner.svg").size(11).text_color(t.working).spin(900) : div().size(8).rounded_full().bg(color))
       .child(div().text_color(on ? t.muted : t.blocked).child(text));
   }
