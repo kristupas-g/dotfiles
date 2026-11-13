@@ -46,6 +46,15 @@ kind-clusters/
 !.config/herdr-app/mods/palette-plus/
 .config/herdr-app/mods/palette-plus/jsconfig.json
 .config/herdr-app/mods/palette-plus/*.d.ts
+!.config/herdr-app/mods/status-bar/
+.config/herdr-app/mods/status-bar/jsconfig.json
+.config/herdr-app/mods/status-bar/*.d.ts
+!.config/herdr-app/mods/git-actions/
+.config/herdr-app/mods/git-actions/jsconfig.json
+.config/herdr-app/mods/git-actions/*.d.ts
+!.config/herdr-app/mods/blank/
+.config/herdr-app/mods/blank/jsconfig.json
+.config/herdr-app/mods/blank/*.d.ts
 !.config/herdr-app/my-icons/
 !.config/herdr-app/mods/tabs-icons/
 .config/herdr-app/mods/tabs-icons/jsconfig.json
