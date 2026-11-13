@@ -14,10 +14,10 @@
           "id": "brand",
           "type": "block",
           "content": {
-            "mod": "workspace-chrome"
+            "mod": "blank"
           },
           "size": {
-            "px": 46
+            "px": 36
           },
           "window_drag": true
         },
@@ -76,7 +76,8 @@
           },
           "size": {
             "px": 69
-          }
+          },
+          "hidden": true
         }
       ],
       "size": {
@@ -112,19 +113,6 @@
               "content": {
                 "tab": "active",
                 "pane": {
-                  "header": {
-                    "content": {
-                      "mod": "herdr-nvim-header",
-                      "props": {
-                        "replaces": {
-                          "mod": "pane"
-                        }
-                      }
-                    },
-                    "reveal": "always",
-                    "height": 22,
-                    "position": "top"
-                  },
                   "background": "background",
                   "border": {
                     "width": 1,
@@ -195,7 +183,7 @@
           "id": "status",
           "type": "block",
           "content": {
-            "mod": "workspace-status"
+            "mod": "status-bar"
           },
           "size": {
             "px": 28
@@ -244,6 +232,14 @@
       "content": {
         "mod": "space-tabs"
       }
+    },
+    {
+      "id": "git-actions",
+      "content": {
+        "mod": "git-actions"
+      },
+      "edge": "bottom",
+      "align": "center"
     }
   ],
   "titlebar": "none",
