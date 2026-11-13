@@ -1,5 +1,5 @@
 // space-tabs: every space gets the same tabs, in this order: a Claude Code chat
-// (herdr-chat), nvim with a shell under it, gitview's diff view and lazygit. Herdr's
+// (herdr-chat), nvim with a shell under it, and gitview's diff view. Herdr's
 // own first tab of a new space is closed when it's just a shell; tabs an existing
 // space already has stay, after these. Each step runs once per space (ids
 // kept in shared "space-tabs.seeded" and "space-tabs.nvim-shell-2"), so a tab or
@@ -27,7 +27,6 @@ const TABS = [
   { name: "claude", open: (s) => run("tab.new", { name: "claude", space: s.id, mod: "chat", props: { chat: `c-${randomBytes(4).toString("hex")}`, provider: "claude", ...(s.folder ? { cwd: s.folder } : {}) } }) },
   { name: "nvim", open: (s) => run("tab.new", { name: "nvim", space: s.id, ...(s.folder ? { folder: s.folder } : {}), argv: ["nvim", "."] }) },
   { name: "gitview", open: openGitview },
-  { name: "lazygit", open: (s) => run("tab.new", { name: "lazygit", space: s.id, ...(s.folder ? { folder: s.folder } : {}), argv: ["lazygit", "status"] }) },
 ];
 
 const space = (id) => spaces().find((s) => s.id === id);
