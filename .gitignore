@@ -39,6 +39,12 @@ kind-clusters/
 !.config/herdr-app/mods/repo-picker/
 .config/herdr-app/mods/repo-picker/jsconfig.json
 .config/herdr-app/mods/repo-picker/*.d.ts
+!.config/herdr-app/mods/space-picker/
+.config/herdr-app/mods/space-picker/jsconfig.json
+.config/herdr-app/mods/space-picker/*.d.ts
+!.config/herdr-app/mods/palette-plus/
+.config/herdr-app/mods/palette-plus/jsconfig.json
+.config/herdr-app/mods/palette-plus/*.d.ts
 !.config/herdr-app/my-icons/
 !.config/herdr-app/mods/tabs-icons/
 .config/herdr-app/mods/tabs-icons/jsconfig.json
