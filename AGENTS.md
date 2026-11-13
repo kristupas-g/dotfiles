@@ -17,7 +17,7 @@ macOS dotfiles for one person, linked into `$HOME` with GNU Stow (`stow .` from 
 | Neovim (0.12+) | `.config/nvim/init.lua`, `lazy-lock.json`, `lua/vscode_workflow.lua`, `after/ftplugin/` | restart nvim |
 | tmux (prefix `C-a`, tpm) | `.tmux.conf` | `prefix + %` or `tmux source-file ~/.tmux.conf` |
 | herdr (terminal multiplexer) | `.config/herdr/config.toml` | `prefix + %` inside herdr |
-| Herdr app (GUI) | `.config/herdr-app/settings.json`, `keys.json` | live on save |
+| Herdr app (GUI) | `.config/herdr-app/settings.json`, `keys.json`, `layouts/main-copy.json` | live on save |
 | zsh (oh-my-zsh) | see below | `exec zsh` |
 | WezTerm | `.config/wezterm/wezterm.lua` | reloads on save |
 | AeroSpace | `.config/aerospace/aerospace.toml` | `aerospace reload-config` |
@@ -42,7 +42,16 @@ Emacs (`.emacs.d`) and Alacritty (`.alacritty.toml`) are still tracked but not i
 ## herdr and the Herdr app
 
 - `.config/herdr/config.toml` is the terminal multiplexer. Its keys mirror `.tmux.conf` (prefix `ctrl+a`, `h/j/k/l` focus, `r`/`d` splits, `q` close, `%` reload); keep the two in sync when changing bindings. `.gitignore` ignores everything in `.config/herdr/` except `config.toml`.
-- `.config/herdr-app/` is the GUI app. Only `settings.json`, `keys.json` and `programs.json` are user-owned and tracked; the rest is ignored. `.config/herdr-app/AGENTS.md` is the app's own reference: it's rewritten on every start, so read it there before editing. Shipped layouts and mods there are replaced on every start. To customise one, clone it with `herdr-app do layout.clone` / `mod.clone`, then add a `!` exception for the clone to `.gitignore`. After an edit, check for a `<name>.error` file next to the edited file.
+- `.config/herdr-app/` is the GUI app. Only `settings.json`, `keys.json`, `programs.json` and `layouts/main-copy.json` are user-owned and tracked; the rest is ignored. `.config/herdr-app/AGENTS.md` is the app's own reference: it's rewritten on every start, so read it there before editing. Shipped layouts and mods there are replaced on every start. To customise one, clone it with `herdr-app do layout.clone` / `mod.clone`, then add a `!` exception for the clone to `.gitignore`. After an edit, check for a `<name>.error` file next to the edited file.
+- The personal layout is `layouts/main-copy.json`, which is tracked. The plugin installers below cloned it from `main` and edit it on install and uninstall, so commit it after running any of them.
+- Plugins (app mods) aren't tracked, because their folders hold binaries and machine-specific paths. On a new machine, open the app and reinstall them; each command also updates its plugin:
+  - herdr-nvim: `curl -fsSL https://raw.githubusercontent.com/ChmaraX/herdr-nvim/main/install.sh | sh -s -- --app`
+  - herdr-gitview: `curl -fsSL https://raw.githubusercontent.com/ChmaraX/herdr-gitview/main/install.sh | sh -s -- --app`
+  - herdr-chat: `curl -fsSL https://raw.githubusercontent.com/ChmaraX/herdr-chat/main/install.sh | sh -s -- --app --no-subagents`. Without `--no-subagents` it writes a block into `~/.claude/CLAUDE.md` and templates into `~/.config/herdr-core/templates/`.
+  - herdr-auto-title: copy `mod/mods/auto-title` from a tagged release of kryptamine/herdr-auto-title into `mods/`, then press `cmd-alt-t` → Install. The popup installs a login service that updates itself.
+  - Uninstall: the same command with `--uninstall`. For auto-title, run `~/Library/Application\ Support/herdr-auto-title/bin/herdr-auto-title desktop uninstall` and delete `mods/auto-title`.
+  - The plugin keys are already in the tracked `keys.json`, and the installers only bind free keys.
+- `herdr plugin` belongs to the terminal `herdr`, not the app. The app doesn't use it.
 
 ## zsh
 

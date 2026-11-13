@@ -20,3 +20,6 @@ kind-clusters/
 !.config/herdr-app/settings.json
 !.config/herdr-app/keys.json
 !.config/herdr-app/programs.json
+!.config/herdr-app/layouts/
+.config/herdr-app/layouts/*
+!.config/herdr-app/layouts/main-copy.json
