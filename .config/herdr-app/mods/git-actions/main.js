@@ -10,11 +10,17 @@
 //                                       when needed), ⌘D marks it a draft, Esc
 //                                       cancels. The branch's open PR, if any, is
 //                                       opened as a tab of the prs mod instead.
+//   git-actions.ignore  (i in gitview)  adds the selected file to the repo's
+//                                       .gitignore (a tracked file is taken out
+//                                       of the index first, as lazygit does).
+//   git-actions.exclude (I in gitview)  the same, into .git/info/exclude.
+// Space in the file list stages the Changes section: that's gitview's own
+// `gitview.button:stage:section:changes`, bound in keys.json, not this mod.
 // The popup is this same mod opened with props { dialog: true, ... }.
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, TextareaState, Textarea } from "gpui-base";
-import { closeOverlay, exec, nextCommand, notify, openOverlay, props, run, setShared, spaces, theme } from "herdr";
+import { closeOverlay, exec, focused, nextCommand, notify, openOverlay, props, run, setShared, shared, spaces, theme } from "herdr";
 
 const REFRESH = "prs.refresh";
 
@@ -58,6 +64,39 @@ async function push(info) {
   return info.upstream ? `${info.ahead} commit${info.ahead === 1 ? "" : "s"} to ${info.upstream}` : `${info.branch} → origin, upstream set`;
 }
 
+// The file gitview shows in the focused tab (shared "gitview.views"), with
+// its repo's root, when the repo is on this computer.
+function selectedFile() {
+  const view = (shared("gitview.views") ?? {})[focused()?.tab];
+  if (!view || view.empty || !view.path) throw new Error("Select a file in gitview first");
+  if (view.on) throw new Error("The repo is on another machine");
+  if (view.commit) throw new Error(`${view.path} is a commit's file: pick one under Changes`);
+  return { cwd: view.root, path: view.path };
+}
+
+// Appends `line` to `file` (made if needed, ending in a newline first).
+// Returns false when the line is already there.
+async function appendLine(file, line, cwd) {
+  const r = await exec("/bin/sh", ["-c", 'f="$1"; l="$2"; [ -f "$f" ] && grep -qxF -- "$l" "$f" && exit 3; mkdir -p "$(dirname "$f")"; [ -s "$f" ] && [ "$(tail -c1 "$f" | od -An -c | tr -d " ")" != "\\n" ] && printf "\n" >> "$f"; printf "%s\n" "$l" >> "$f"', "sh", file, line], { cwd, timeout: 10000 });
+  if (r.code === 3) return false;
+  if (r.code !== 0) throw new Error(firstLine(r.stderr) || `couldn't write ${file}`);
+  return true;
+}
+
+// Adds the selected file to an ignore file (`.gitignore`, or git's
+// info/exclude), taking a tracked one out of the index first so the rule
+// takes effect. Gitview's folder watch sees the edit and re-reads.
+async function ignoreSelected(which) {
+  const { cwd, path } = selectedFile();
+  const file = which === "exclude" ? await git(["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], cwd) : `${cwd}/.gitignore`;
+  const name = which === "exclude" ? ".git/info/exclude" : ".gitignore";
+  const tracked = (await exec("git", ["ls-files", "--error-unmatch", "--", path], { cwd, timeout: 10000 })).code === 0;
+  if (tracked) await git(["rm", "-r", "--cached", "--quiet", "--", path], cwd);
+  const added = await appendLine(file, path, cwd);
+  if (!added && !tracked) return notify({ title: `Already in ${name}`, body: path, level: "info", timeout: 3000 });
+  notify({ title: `${added ? "Added to" : "Already in"} ${name}${tracked ? ", removed from the index" : ""}`, body: path, level: "info", timeout: 4000 });
+}
+
 // The PR as a tab of the prs mod, in this space.
 function openPr(space, repo, number) {
   const sp = spaces().find((s) => s.id === space);
@@ -76,6 +115,7 @@ export default class GitActions extends View {
         const c = await nextCommand();
         if (c === "push") this.doPush(cx);
         else if (c === "pr") this.openDialog(cx);
+        else if (c === "ignore" || c === "exclude") this.act(c === "ignore" ? "add to .gitignore" : "add to .git/info/exclude", () => ignoreSelected(c), cx);
       }
     });
   }
