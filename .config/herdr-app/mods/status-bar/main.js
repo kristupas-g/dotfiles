@@ -17,7 +17,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, theme, run, window, keys, exec, notify, appHome, home } from "herdr";
+import { spaces, agents, theme, run, window, keys, exec, notify, appHome, home, nextCommand } from "herdr";
 
 const firstLine = (t) => (t ?? "").split("\n").find((l) => l.trim()) ?? "";
 
@@ -25,6 +25,8 @@ const VPN_SERVICE = "VPN";
 const VPN_PROFILE = "vinted-vpn v2";
 const VPN_PREFS = "com.fortinet.forticlient.macos.vpn";
 const POLL = 5000;
+// One line per VPN action, for when a click seems to do nothing.
+const trace = (m) => exec("/bin/sh", ["-c", 'printf "%s %s\\n" "$(date +%T)" "$1" >> "$2"', "sh", String(m), `${appHome()}/data/status-bar.log`]).catch(() => {});
 
 export default class StatusBar extends View {
   init(_props, cx) {
@@ -32,6 +34,15 @@ export default class StatusBar extends View {
     this.connecting = false;
     cx.timer.every(POLL, (cx) => this.poll(cx));
     this.poll(cx);
+    // `status-bar.vpn` (toggle), `status-bar.connect`, `status-bar.disconnect`: from a key or `herdr-app do`.
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (c === "vpn") this.toggle(cx);
+        else if (c === "connect" && this.vpn.state !== "Connected") this.toggle(cx);
+        else if (c === "disconnect" && this.vpn.state === "Connected") this.toggle(cx);
+      }
+    });
   }
 
   // Up when the SSL extension says Connected, or FortiClient's IPsec tunnel
@@ -52,8 +63,11 @@ export default class StatusBar extends View {
 
   // FortiClient's window, driven by vpn.applescript: the profile's Connect or Disconnect button.
   async press(profile, action) {
-    await exec("/usr/bin/open", ["fabricagent://vpn"], { timeout: 5000 }).catch(() => exec("/usr/bin/open", ["-a", "FortiClient"]));
-    const r = await exec("/usr/bin/osascript", [`${appHome()}/mods/status-bar/vpn.applescript`, profile, action], { timeout: 60000 });
+    // -g: without bringing FortiClient to the front; the script hides it again after the press.
+    await exec("/usr/bin/open", ["-g", "fabricagent://vpn"], { timeout: 5000 }).catch(() => exec("/usr/bin/open", ["-g", "-a", "FortiClient"]));
+    const t0 = Date.now();
+    const r = await exec("/usr/bin/osascript", [`${appHome()}/mods/status-bar/vpn.applescript`, profile, action], { timeout: 30000 }).catch((e) => ({ code: -1, stdout: "", stderr: `osascript didn't finish: ${String(e?.message ?? e)}` }));
+    trace(`${action} ${profile}: code ${r.code} in ${Date.now() - t0} ms; ${r.stdout.trim()}${r.stderr.trim() ? ` / ${r.stderr.trim()}` : ""}`);
     if (r.code !== 0) {
       const why = firstLine(r.stderr);
       if (/assistive access/i.test(why)) throw new Error("Herdr needs Accessibility permission to press buttons in FortiClient: System Settings → Privacy & Security → Accessibility → add Herdr");
@@ -93,8 +107,10 @@ export default class StatusBar extends View {
           if (!(await this.settle("Connected", 30000, cx))) notify({ title: "VPN", body: `FortiClient is connecting to ${VPN_PROFILE}; it may be waiting for a login`, level: "warning" });
         }
       } catch (e) {
+        trace(`error: ${String(e?.message ?? e)}`);
         notify({ title: "VPN", body: String(e?.message ?? e), level: "error", timeout: 12000 });
       } finally {
+        trace(`toggle: ${was.state}${was.how ? ` (${was.how})` : ""} -> ${this.vpn.state}${this.vpn.how ? ` (${this.vpn.how})` : ""}`);
         this.connecting = false;
         cx.notify();
       }

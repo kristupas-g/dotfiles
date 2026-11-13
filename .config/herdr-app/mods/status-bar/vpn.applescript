@@ -9,20 +9,25 @@
 -- Electron only builds its web accessibility tree once asked
 -- (AXManualAccessibility), and only for a window that already exists, so the
 -- window is waited for first and the attribute set again on every try.
+-- FortiClient isn't brought to the front (the caller opens it in the
+-- background), and it's hidden once the button is pressed.
 on run argv
 	set profileName to item 1 of argv
 	set btn to item 2 of argv
-	tell application "FortiClient" to activate
-	delay 1
 	tell application "System Events"
+		repeat 30 times
+			if exists process "FortiClient" then exit repeat
+			delay 0.5
+		end repeat
+		if not (exists process "FortiClient") then error "FortiClient isn't running"
+		set labels to ""
+		set pressed to false
 		tell process "FortiClient"
-			set frontmost to true
 			repeat 20 times
 				if (count of windows) > 0 then exit repeat
 				delay 0.5
 			end repeat
 			if (count of windows) = 0 then error "FortiClient has no window"
-			set labels to ""
 			repeat 8 times
 				try
 					set value of attribute "AXManualAccessibility" to true
@@ -51,14 +56,22 @@ on run argv
 								end try
 								if n is btn then
 									click e
-									return btn & " pressed for " & profileName
+									set pressed to true
+									exit repeat
 								end if
 							end if
 						end try
 					end repeat
+					if pressed then exit repeat
 				end repeat
+				if pressed then exit repeat
 			end repeat
-			error "No " & btn & " button for \"" & profileName & "\" in FortiClient's window. Labels seen: " & labels
 		end tell
+		if not pressed then error "No " & btn & " button for \"" & profileName & "\" in FortiClient's window. Labels seen: " & labels
+		delay 0.5
+		try
+			set visible of process "FortiClient" to false
+		end try
+		return btn & " pressed for " & profileName
 	end tell
 end run
