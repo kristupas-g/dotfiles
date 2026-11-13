@@ -1,20 +1,25 @@
 // status-bar: the bottom bar, from Herdr's workspace-status without the machine
-// name and the agent count: the FortiClient VPN state (green connected, red
-// not; a click toggles it: connects to the "vinted-vpn v2" profile, or
-// disconnects), the branch, "N needs
-// you" when an agent is blocked, and the palette hint (palette-plus, as
-// keys.json binds it).
+// name and the agent count: the FortiClient VPN state (green with the profile
+// when connected, red "VPN off" when not; a click toggles it), the branch,
+// "N needs you" when an agent is blocked, and the palette hint (palette-plus,
+// as keys.json binds it).
 //
-// The VPN is FortiClient's network extension, the one service `scutil --nc
-// list` shows as "VPN"; its state is `scutil --nc status VPN`. Which profile
-// it dials is the VpnName in the extension's preferences (defaults domain
-// com.fortinet.forticlient.macos.vpn): a click sets it to VPN_PROFILE and
-// starts the service; connected, a click stops it (`scutil --nc stop VPN`). If
-// connecting doesn't take within a few seconds, FortiClient itself is opened.
+// FortiClient has two kinds of tunnel. SSL profiles run in its network
+// extension, the "VPN" service of `scutil --nc list`, whose state is `scutil
+// --nc status VPN` and which `scutil --nc stop VPN` ends. IPsec profiles
+// ("vinted-vpn v2") run FortiClient's own iked / fct_tunnel_ctl processes
+// instead, so "up" is either of those. Nothing starts a tunnel from the
+// command line (the service ignores `scutil --nc start`, FortiClient's CLIs
+// need root, its fabricagent://vpn URL only opens the VPN page), so connecting
+// and IPsec disconnecting press the buttons in FortiClient's window through
+// vpn.applescript, which needs Accessibility permission for Herdr. FortiClient
+// hides its window once connected (its "minimize on connect").
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, theme, run, window, keys, exec, notify } from "herdr";
+import { spaces, agents, theme, run, window, keys, exec, notify, appHome, home } from "herdr";
+
+const firstLine = (t) => (t ?? "").split("\n").find((l) => l.trim()) ?? "";
 
 const VPN_SERVICE = "VPN";
 const VPN_PROFILE = "vinted-vpn v2";
@@ -23,58 +28,72 @@ const POLL = 5000;
 
 export default class StatusBar extends View {
   init(_props, cx) {
-    this.vpn = { state: "unknown", name: null };
+    this.vpn = { state: "unknown", name: null, how: null };
     this.connecting = false;
     cx.timer.every(POLL, (cx) => this.poll(cx));
     this.poll(cx);
   }
 
+  // Up when the SSL extension says Connected, or FortiClient's IPsec tunnel
+  // processes are running. The profile is the one FortiClient last connected.
   poll(cx) {
     cx.spawn(async (cx) => {
-      const r = await exec("/usr/sbin/scutil", ["--nc", "status", VPN_SERVICE], { timeout: 5000 }).catch(() => null);
-      const state = r?.code === 0 ? (r.stdout.split("\n")[0] ?? "").trim() : "unknown";
-      const name = (await exec("/usr/bin/defaults", ["read", VPN_PREFS, "VpnName"], { timeout: 5000 }).catch(() => null))?.stdout.trim() || null;
-      this.vpn = { state, name };
+      const ne = await exec("/usr/sbin/scutil", ["--nc", "status", VPN_SERVICE], { timeout: 5000 }).catch(() => null);
+      const neState = ne?.code === 0 ? (ne.stdout.split("\n")[0] ?? "").trim() : "unknown";
+      const ipsec = (await exec("/usr/bin/pgrep", ["-f", "FortiClient/bin/(fct_tunnel_ctl|iked)"], { timeout: 5000 }).catch(() => ({ code: 1 }))).code === 0;
+      const state = neState === "Connected" ? "Connected" : ipsec ? "Connected" : neState === "unknown" && !ipsec ? "unknown" : neState === "Disconnected" || neState === "unknown" ? "Disconnected" : neState;
+      const how = neState === "Connected" ? "ssl" : ipsec ? "ipsec" : null;
+      const name = state === "Connected" ? (await exec("/usr/bin/plutil", ["-extract", "VPNLastTimeConnection", "raw", "-o", "-", `${home()}/Library/Application Support/Fortinet/FortiClient/fct.plist`], { timeout: 5000 }).catch(() => null))?.stdout.trim() || null : null;
+      this.vpn = { state, name, how };
       if (state === "Connected") this.connecting = false;
       cx.notify();
     });
   }
 
-  // Connected: stop the VPN. Otherwise: connect to VPN_PROFILE.
-  toggle(cx) {
-    if (this.connecting) return;
-    if (this.vpn.state !== "Connected") return this.connect(cx);
-    this.connecting = true;
-    cx.notify();
-    cx.spawn(async (cx) => {
-      const r = await exec("/usr/sbin/scutil", ["--nc", "stop", VPN_SERVICE], { timeout: 10000 }).catch((e) => ({ code: 1, stderr: String(e?.message ?? e) }));
-      if (r.code !== 0) notify({ title: "VPN", body: r.stderr.trim() || "scutil couldn't stop the VPN", level: "error" });
-      await cx.sleep(1500);
-      this.connecting = false;
-      this.poll(cx);
-    });
+  // FortiClient's window, driven by vpn.applescript: the profile's Connect or Disconnect button.
+  async press(profile, action) {
+    await exec("/usr/bin/open", ["fabricagent://vpn"], { timeout: 5000 }).catch(() => exec("/usr/bin/open", ["-a", "FortiClient"]));
+    const r = await exec("/usr/bin/osascript", [`${appHome()}/mods/status-bar/vpn.applescript`, profile, action], { timeout: 60000 });
+    if (r.code !== 0) {
+      const why = firstLine(r.stderr);
+      if (/assistive access/i.test(why)) throw new Error("Herdr needs Accessibility permission to press buttons in FortiClient: System Settings → Privacy & Security → Accessibility → add Herdr");
+      throw new Error(why || "couldn't drive FortiClient's window");
+    }
   }
 
-  connect(cx) {
+  // Waits up to `ms` for the VPN to reach `state`; true if it did.
+  async settle(state, ms, cx) {
+    for (let waited = 0; waited < ms; waited += 1200) {
+      await cx.sleep(1000);
+      this.poll(cx);
+      await cx.sleep(200);
+      if (this.vpn.state === state) return true;
+    }
+    return false;
+  }
+
+  // Connected: disconnect (the SSL extension through scutil, IPsec through
+  // FortiClient's window). Otherwise: connect to VPN_PROFILE.
+  toggle(cx) {
+    if (this.connecting) return;
+    const was = this.vpn;
     this.connecting = true;
     cx.notify();
     cx.spawn(async (cx) => {
       try {
-        await exec("/usr/bin/defaults", ["write", VPN_PREFS, "VpnName", VPN_PROFILE], { timeout: 5000 });
-        const r = await exec("/usr/sbin/scutil", ["--nc", "start", VPN_SERVICE], { timeout: 10000 });
-        if (r.code !== 0) throw new Error(r.stderr.trim() || "scutil couldn't start the VPN");
-        for (let i = 0; i < 8; i++) {
-          await cx.sleep(1000);
-          this.poll(cx);
-          await cx.sleep(200);
-          if (this.vpn.state === "Connected") return;
+        if (was.state === "Connected") {
+          if (was.how === "ssl") {
+            const r = await exec("/usr/sbin/scutil", ["--nc", "stop", VPN_SERVICE], { timeout: 10000 });
+            if (r.code !== 0) throw new Error(r.stderr.trim() || "scutil couldn't stop the VPN");
+          } else await this.press(was.name ?? VPN_PROFILE, "Disconnect");
+          if (!(await this.settle("Disconnected", 15000, cx))) notify({ title: "VPN", body: "Still connected; see FortiClient", level: "warning" });
+        } else {
+          await exec("/usr/bin/defaults", ["write", VPN_PREFS, "VpnName", VPN_PROFILE], { timeout: 5000 }).catch(() => {});
+          await this.press(VPN_PROFILE, "Connect");
+          if (!(await this.settle("Connected", 30000, cx))) notify({ title: "VPN", body: `FortiClient is connecting to ${VPN_PROFILE}; it may be waiting for a login`, level: "warning" });
         }
-        // Not up by itself: FortiClient's window, with the profile selected.
-        await exec("/usr/bin/open", ["-a", "FortiClient"]).catch(() => {});
-        notify({ title: "VPN", body: `Connect to ${VPN_PROFILE} in FortiClient`, level: "warning" });
       } catch (e) {
-        await exec("/usr/bin/open", ["-a", "FortiClient"]).catch(() => {});
-        notify({ title: "VPN", body: String(e?.message ?? e), level: "error" });
+        notify({ title: "VPN", body: String(e?.message ?? e), level: "error", timeout: 12000 });
       } finally {
         this.connecting = false;
         cx.notify();
