@@ -5,15 +5,22 @@
 // kept in shared "space-tabs.seeded" and "space-tabs.nvim-shell-2"), so a tab or
 // pane closed later stays closed. Runs as an empty floating block in the layout;
 // draws nothing. Spaces on other machines are skipped.
+//
+// Tabs open in their final order, so nothing is moved afterwards, and the
+// starter shell goes as soon as the first tab is there. gitview-tab builds its
+// file list in the background and then focuses it, which shows its tab: the
+// claude tab is selected once that has happened, not before.
 
 import { View, div } from "gpui-kit";
-import { exec, machines, notify, panes, run, setShared, shared, spaces } from "herdr";
+import { exec, focused, machines, notify, panes, run, setShared, shared, spaces } from "herdr";
 import { randomBytes } from "crypto";
 
 const SEEDED = "space-tabs.seeded";
 const NVIM_SHELL = "space-tabs.nvim-shell-2";
 // The shell's share of the nvim tab's height.
 const SHELL_WEIGHT = 0.25;
+// How often new spaces are looked for.
+const POLL = 200;
 
 // name: the tab's name, how an existing one is recognised.
 const TABS = [
@@ -27,22 +34,21 @@ const space = (id) => spaces().find((s) => s.id === id);
 const tabNamed = (id, name) => space(id)?.tabs.find((t) => t.name === name) ?? null;
 
 async function until(cx, test, ms = 10000) {
-  for (let waited = 0; waited < ms; waited += 100) {
+  for (let waited = 0; waited < ms; waited += 50) {
     const v = test();
     if (v) return v;
-    await cx.sleep(100);
+    await cx.sleep(50);
   }
   return null;
 }
 
-// gitview-tab opens its tab for the shown space, so show it first.
+// gitview-tab opens its tab for the shown space, so show it first. The tab
+// appears at once; its file list, and the focus that shows the tab, come
+// later (settle waits for those).
 async function openGitview(s, cx) {
   run("space.select", { id: s.id });
   await until(cx, () => spaces().find((x) => x.active)?.id === s.id, 3000);
   run("mod.open", { name: "gitview-tab" });
-  // Done when its file list is beside the diff: it shows the tab then.
-  await until(cx, () => tabNamed(s.id, "gitview")?.panes >= 2, 15000);
-  await cx.sleep(500);
 }
 
 // herdr-core's API (`hc connect`, one JSON-RPC request per run).
@@ -90,30 +96,55 @@ async function nvimShell(id, cx) {
   await sizeSplit(tab.id, nvim.pane, SHELL_WEIGHT, cx);
 }
 
+// Herdr's starter tab of a new space, when it's still just an idle shell.
+function closeStarter(id) {
+  const inStarter = panes().filter((p) => p.tab === id);
+  if (inStarter.length === 1 && inStarter[0].program?.shell && !inStarter[0].status) run("tab.close", { id, confirmed: true });
+}
+
+// gitview-tab ends by focusing its file list, which shows its tab: wait for
+// that, then show the first tab, once.
+async function settle(id, cx) {
+  const gv = tabNamed(id, "gitview");
+  if (gv) {
+    const a = await until(cx, () => tabNamed(id, "gitview")?.panes >= 2, 15000);
+    const b = await until(cx, () => focused()?.tab === gv.id, 2000);
+  }
+  // gitview keeps focusing its panes for a moment after that: hold the first
+  // tab until it has stayed shown for a second.
+  for (let held = 0, i = 0; held < 1000 && i < 60; i++) {
+    const first = tabNamed(id, TABS[0].name);
+    if (!first) return;
+    if (first.active) held += 100;
+    else {
+      held = 0;
+      run("tab.select", { id: first.id });
+    }
+    await cx.sleep(100);
+  }
+}
+
 async function seed(id, cx) {
   if (TABS.every((t) => tabNamed(id, t.name))) return;
   // A new space comes with a shell tab of Herdr's: it goes once ours are there.
   const tabs = space(id)?.tabs ?? [];
   const starter = tabs.length === 1 && !TABS.some((t) => t.name === tabs[0].name) ? tabs[0].id : null;
-  // gitview builds its tab in the background and shows it when done: open it last.
-  for (const t of [...TABS].sort((a, b) => (a.open === openGitview) - (b.open === openGitview))) {
+  for (const t of TABS) {
     if (!space(id)) return;
     if (tabNamed(id, t.name)) continue;
     await t.open(space(id), cx);
     if (!(await until(cx, () => tabNamed(id, t.name)))) notify({ title: "space-tabs", body: `${t.name} didn't open in ${space(id)?.name ?? id}`, level: "warning" });
+    if (starter && t === TABS[0]) closeStarter(starter);
   }
-  await cx.sleep(1500);
-  // spaces() catches up a moment after each move: wait for it before the next.
+  // Opened in order, so this only moves when a space already had tabs of its own.
+  const ahead = () => (starter && space(id)?.tabs.some((t) => t.id === starter) ? 1 : 0);
   for (const [i, t] of TABS.entries()) {
     const tab = tabNamed(id, t.name);
-    if (!tab || tab.index === i + 1) continue;
-    run("tab.move", { id: tab.id, index: i + 1 });
-    await until(cx, () => tabNamed(id, t.name)?.index === i + 1, 2000);
+    if (!tab || tab.index === i + 1 + ahead()) continue;
+    run("tab.move", { id: tab.id, index: i + 1 + ahead() });
+    await until(cx, () => tabNamed(id, t.name)?.index === i + 1 + ahead(), 2000);
   }
-  const inStarter = panes().filter((p) => p.tab === starter);
-  if (starter && inStarter.length === 1 && inStarter[0].program?.shell && !inStarter[0].status) run("tab.close", { id: starter, confirmed: true });
-  const first = tabNamed(id, TABS[0].name);
-  if (first) run("tab.select", { id: first.id });
+  await settle(id, cx);
 }
 
 // Runs step once for each local space not yet in shared[key].
@@ -129,32 +160,24 @@ async function once(key, step, cx) {
       notify({ title: "space-tabs", body: String(e?.message ?? e), level: "error" });
     }
   }
-  return todo.length;
+  return todo.map((s) => s.id);
 }
 
 export default class SpaceTabs extends View {
   init(_props, cx) {
     cx.spawn(async (cx) => {
       for (;;) {
-        await cx.sleep(1000);
+        await cx.sleep(POLL);
         if (machines().find((m) => m.name === null)?.layout !== "ready") continue;
         const shown = spaces().find((s) => s.active)?.id;
-        const fresh = new Set(spaces().filter((s) => !(shared(SEEDED) ?? []).includes(s.id)).map((s) => s.id));
-        const worked = (await once(SEEDED, seed, cx)) + (await once(NVIM_SHELL, nvimShell, cx));
-        // gitview shows its tab when it's done building it, and closing Herdr's first tab
-        // shows another, both often after seed's tab.select: again until it holds.
-        for (const id of fresh) {
-          for (let i = 0; i < 8; i++) {
-            const first = tabNamed(id, TABS[0].name);
-            if (!first) break;
-            if (first.active && i >= 2) break;
-            run("tab.select", { id: first.id });
-            await cx.sleep(500);
-          }
-        }
-        // Setting up spaces that already existed shouldn't leave you somewhere else;
-        // a new space stays shown.
-        if (worked && shown && space(shown) && !fresh.has(shown)) run("space.select", { id: shown });
+        const seeded = await once(SEEDED, seed, cx);
+        const shelled = await once(NVIM_SHELL, nvimShell, cx);
+        // Setting up spaces that already existed shouldn't leave you somewhere else.
+        // A space seeded just now is new and stays shown: it may not have been
+        // marked active yet when this iteration started.
+        const now = spaces().find((s) => s.active)?.id;
+        const fresh = seeded.includes(shown) || seeded.includes(now);
+        if ((seeded.length || shelled.length) && !fresh && shown && space(shown) && shown !== now) run("space.select", { id: shown });
       }
     });
   }
