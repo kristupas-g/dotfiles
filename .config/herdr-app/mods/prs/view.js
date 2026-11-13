@@ -53,7 +53,7 @@ export class PullRequestView {
     const n = String(this.number);
     const [owner, name] = this.repo.split("/");
     const [pr, comments, diff, repo, queue] = await Promise.allSettled([
-      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt,autoMergeRequest"]),
+      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "id,title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt,autoMergeRequest"]),
       ghJson(["api", `repos/${this.repo}/pulls/${n}/comments`, "--paginate", "--slurp"]),
       gh(["pr", "diff", n, "--repo", this.repo], { timeout: 60000 }),
       this.methods ? Promise.resolve(this.methods) : ghJson(["api", `repos/${this.repo}`, "--jq", "{squash: .allow_squash_merge, merge: .allow_merge_commit, rebase: .allow_rebase_merge}"]),
@@ -108,10 +108,12 @@ export class PullRequestView {
     return this.pr?.ci === "failure" ? `CI failed on ${n}. Merge it ${method} anyway?` : `Merge ${n} ${method}?`;
   }
 
-  // Merge or close, after the confirm row said yes. `--auto` makes gh merge a
-  // green PR at once, add a PR to its base's merge queue, and enable
-  // auto-merge on a blocked one instead of failing. The sidebar list re-reads
-  // GitHub through the shared stamp.
+  // Merge or close, after the confirm row said yes. A base branch with a merge
+  // queue gets the enqueue mutation (GitHub's "Add to merge queue"; gh's own
+  // route is auto-merge, which such branches may refuse). Elsewhere `--auto`
+  // makes gh merge a green PR at once and enable auto-merge on a blocked one
+  // instead of failing. The sidebar list re-reads GitHub through the shared
+  // stamp.
   act(what, cx) {
     this.confirm = null;
     this.busy = what;
@@ -121,7 +123,8 @@ export class PullRequestView {
       const n = String(this.number);
       let failed = false;
       try {
-        if (what === "merge") await gh(["pr", "merge", n, "--repo", this.repo, `--${this.mergeMethod()}`, "--auto"], { timeout: 120000, allLines: true });
+        if (what === "merge" && this.queue.enabled && this.pr?.id) await gh(["api", "graphql", "-F", `id=${this.pr.id}`, "-f", "query=mutation($id: ID!) { enqueuePullRequest(input: {pullRequestId: $id}) { mergeQueueEntry { position } } }"], { allLines: true });
+        else if (what === "merge") await gh(["pr", "merge", n, "--repo", this.repo, `--${this.mergeMethod()}`, "--auto"], { timeout: 120000, allLines: true });
         else await gh(["pr", "close", n, "--repo", this.repo]);
       } catch (e) {
         failed = true;
