@@ -29,7 +29,7 @@
               "id": "spaces",
               "type": "block",
               "content": {
-                "mod": "spaces"
+                "mod": "spaces-pinned"
               },
               "size": {
                 "weight": 1
@@ -237,6 +237,17 @@
       "id": "git-actions",
       "content": {
         "mod": "git-actions"
+      },
+      "edge": "bottom",
+      "align": "center"
+    },
+    {
+      "id": "kube-commands",
+      "content": {
+        "mod": "kube",
+        "props": {
+          "role": "commands"
+        }
       },
       "edge": "bottom",
       "align": "center"

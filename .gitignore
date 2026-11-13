@@ -55,6 +55,9 @@ kind-clusters/
 !.config/herdr-app/mods/blank/
 .config/herdr-app/mods/blank/jsconfig.json
 .config/herdr-app/mods/blank/*.d.ts
+!.config/herdr-app/mods/kube/
+.config/herdr-app/mods/kube/jsconfig.json
+.config/herdr-app/mods/kube/*.d.ts
 !.config/herdr-app/my-icons/
 !.config/herdr-app/mods/tabs-icons/
 .config/herdr-app/mods/tabs-icons/jsconfig.json

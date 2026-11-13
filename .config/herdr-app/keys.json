@@ -65,7 +65,8 @@
     "cmd-g": "mod.open:gitview-tab",
     "cmd-i": "new-chat.claude",
     "cmd-shift-i": "mod.open:new-chat",
-    "cmd-alt-t": "mod.open:auto-title"
+    "cmd-alt-t": "mod.open:auto-title",
+    "cmd-k": "kube.open"
   },
   "mod:gitview": {
     "shift-p": "git-actions.push",

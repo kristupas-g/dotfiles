@@ -7,6 +7,7 @@ const MOD_ICONS = {
   chat: { icon: "icons/claude.svg", tint: false },
   gitview: { icon: "my-icons/gitview.svg", tint: false },
   "gitview-diff": { icon: "my-icons/gitview.svg", tint: false },
+  kube: { icon: "icons/kubectl.svg", tint: true },
 };
 
 function find(node, id) {
