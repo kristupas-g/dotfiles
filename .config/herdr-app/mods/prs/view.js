@@ -5,7 +5,7 @@
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle, Scrollbar, TextView, v_virtual_list } from "gpui-base";
-import { notify, props, run, setShared, settings, theme, focused } from "herdr";
+import { exec, home, notify, props, run, setShared, settings, spaces, theme } from "herdr";
 import { gh, ghJson, openUrl, duration, kind, check, buildUrl, firstLine, REFRESH } from "./gh.js";
 import { parseDiff, threads, buildRows } from "./diff.js";
 
@@ -50,7 +50,7 @@ export class PullRequestView {
   async load() {
     const n = String(this.number);
     const [pr, comments, diff, repo] = await Promise.allSettled([
-      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt"]),
+      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt"]),
       ghJson(["api", `repos/${this.repo}/pulls/${n}/comments`, "--paginate", "--slurp"]),
       gh(["pr", "diff", n, "--repo", this.repo], { timeout: 60000 }),
       this.methods ? Promise.resolve(this.methods) : ghJson(["api", `repos/${this.repo}`, "--jq", "{squash: .allow_squash_merge, merge: .allow_merge_commit, rebase: .allow_rebase_merge}"]),
@@ -108,6 +108,50 @@ export class PullRequestView {
     });
   }
 
+  // A space for this PR: the repo's clone in ~/vinted, on the PR's branch. When
+  // the clone is on another branch, a git worktree of it at Herdr's place
+  // (~/.herdr/worktrees/<repo>/<branch>) so the clone stays as it is. A space
+  // already on that folder is shown instead of made again.
+  openSpace(cx) {
+    const pr = this.pr;
+    if (!pr || this.busy) return;
+    this.busy = "space";
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const repoName = this.repo.split("/").pop();
+      const clone = `${home()}/vinted/${repoName}`;
+      const branch = pr.headRefName;
+      const git = async (args, cwd = clone) => {
+        const r = await exec("git", args, { cwd, timeout: 120000 });
+        if (r.code !== 0) throw new Error(firstLine(r.stderr) || `git ${args[0]} failed`);
+        return r.stdout.trim();
+      };
+      try {
+        if ((await exec("git", ["rev-parse", "--is-inside-work-tree"], { cwd: clone }).catch(() => ({ code: 1 }))).code !== 0) throw new Error(`No clone at ~/vinted/${repoName}`);
+        // The branch, fetched: a fork's through the PR ref.
+        if (pr.isCrossRepository) await git(["fetch", "origin", `+refs/pull/${this.number}/head:refs/heads/${branch}`]);
+        else await git(["fetch", "origin", branch]);
+        let folder = clone;
+        if ((await git(["branch", "--show-current"])) !== branch) {
+          const list = await git(["worktree", "list", "--porcelain"]);
+          const at = list.split("\n\n").map((b) => b.split("\n")).find((b) => b.some((l) => l === `branch refs/heads/${branch}`));
+          folder = at ? at[0].replace(/^worktree /, "") : `${home()}/.herdr/worktrees/${repoName}/${branch}`;
+          if (!at) {
+            const local = (await exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: clone })).code === 0;
+            await git(["worktree", "add", folder, ...(local ? [branch] : ["-b", branch, `origin/${branch}`])]);
+          }
+        }
+        const open = spaces().find((s) => !s.machine && s.folder === folder);
+        if (open) run("space.select", { id: open.id });
+        else run("space.new", { name: `${repoName} #${this.number}`, folder });
+      } catch (e) {
+        notify({ title: `Couldn't make a space for #${this.number}`, body: String(e?.message ?? e), level: "error" });
+      }
+      this.busy = null;
+      cx.notify();
+    });
+  }
+
   button(t, id, label, onClick, { tone = null, disabled = false } = {}) {
     const color = tone ? t[tone] : t.foreground;
     return h_flex()
@@ -161,6 +205,7 @@ export class PullRequestView {
               .child(this.loading ? svg("mods/workspace-chrome/spinner.svg").size(14).spin(900) : svg("mods/prs/refresh.svg").size(14)),
           )
           .child(this.button(t, "pr-github", "GitHub", () => openUrl(this.pr?.url ?? `https://github.com/${this.repo}/pull/${this.number}`)))
+          .child(this.button(t, "pr-space", this.busy === "space" ? "Opening…" : "Space", (cx) => this.openSpace(cx), { disabled: !pr || Boolean(this.busy) }))
           .when(Boolean(pr), (el) => el.child(this.circleButton(t)))
           .child(this.button(t, "pr-close", this.busy === "close" ? "Closing…" : "Close", (cx) => { this.confirm = "close"; cx.notify(); }, { tone: "blocked", disabled: !open || Boolean(this.busy) }))
           .child(this.button(t, "pr-merge", this.busy === "merge" ? "Merging…" : "Merge", (cx) => { this.confirm = "merge"; cx.notify(); }, { tone: "ansi2", disabled: !open || Boolean(this.busy) }));
