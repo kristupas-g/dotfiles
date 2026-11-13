@@ -1,6 +1,6 @@
 {
     "global": {
-        "check_for_updates_on_startup": false,
+        "check_for_updates": false,
         "show_in_menu_bar": false
     },
     "profiles": [
@@ -81,7 +81,10 @@
                     "to": [{ "key_code": "left_control" }]
                 }
             ],
-            "virtual_hid_keyboard": { "mouse_key_xy_scale": 200 }
+            "virtual_hid_keyboard": {
+                "keyboard_type_v2": "ansi",
+                "mouse_key_xy_scale": 200
+            }
         }
     ]
 }

@@ -28,7 +28,7 @@ vim.opt.rtp:prepend(lazypath)
 
 local in_vscode = vim.g.vscode ~= nil
 
-vim.env.JAVA_HOME = '/opt/homebrew/opt/openjdk'
+vim.env.JAVA_HOME = '/opt/homebrew/opt/openjdk@21'
 vim.env.PATH = vim.env.JAVA_HOME .. '/bin:' .. vim.env.PATH
 
 vim.g.mapleader = ' '
