@@ -203,11 +203,6 @@
     "width": 1,
     "color": "border"
   },
-  "titlebar": "none",
-  "traffic_lights": [
-    12,
-    16
-  ],
   "floating": [
     {
       "id": "herdr-nvim-sync",
@@ -222,15 +217,28 @@
     },
     {
       "id": "new-chat-commands",
-      "edge": "bottom",
-      "align": "start",
       "content": {
         "mod": "new-chat",
         "props": {
           "role": "commands"
         }
+      },
+      "edge": "bottom",
+      "align": "start"
+    },
+    {
+      "id": "space-tabs",
+      "edge": "bottom",
+      "align": "start",
+      "content": {
+        "mod": "space-tabs"
       }
     }
+  ],
+  "titlebar": "none",
+  "traffic_lights": [
+    12,
+    16
   ],
   "terminal_menu": "chat-menu"
 }

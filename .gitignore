@@ -28,3 +28,8 @@ kind-clusters/
 !.config/herdr-app/data/herdr-chat/
 .config/herdr-app/data/herdr-chat/*
 !.config/herdr-app/data/herdr-chat/keys.json
+!.config/herdr-app/mods/
+.config/herdr-app/mods/*
+!.config/herdr-app/mods/space-tabs/
+.config/herdr-app/mods/space-tabs/jsconfig.json
+.config/herdr-app/mods/space-tabs/*.d.ts

@@ -52,6 +52,7 @@ Emacs (`.emacs.d`) and Alacritty (`.alacritty.toml`) are still tracked but not i
   - Uninstall: the same command with `--uninstall`. For auto-title, run `~/Library/Application\ Support/herdr-auto-title/bin/herdr-auto-title desktop uninstall` and delete `mods/auto-title`.
   - The plugin keys are already in the tracked `keys.json`, and the installers only bind free keys.
 - `herdr plugin` belongs to the terminal `herdr`, not the app. The app doesn't use it.
+- `mods/space-tabs/` is our own mod and is tracked. Every space on this machine gets a claude chat, nvim, gitview and lazygit tab, in that order, ahead of the tabs it already has. The tab list is `TABS` in its `main.js`. It runs from the `space-tabs` floating block in `main-copy.json`. Each space is set up once (ids in shared `space-tabs.seeded`), so a tab closed later stays closed. When creating a mod, Herdr adds a visible copy of it to the shown layout; remove that block from `main-copy.json` if the mod belongs in `floating` instead.
 
 ## zsh
 
