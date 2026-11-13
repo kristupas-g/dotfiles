@@ -30,6 +30,8 @@ export class PullRequestView {
     this.busy = null;
     this.confirm = null;
     this.methods = null;
+    this.queue = { enabled: false, inQueue: false };
+    this.actError = null;
     this.highlight = null;
     this.scroll = ScrollHandle.new();
     cx.timer.every(120_000, (cx) => this.refresh(cx));
@@ -49,11 +51,13 @@ export class PullRequestView {
 
   async load() {
     const n = String(this.number);
-    const [pr, comments, diff, repo] = await Promise.allSettled([
-      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt"]),
+    const [owner, name] = this.repo.split("/");
+    const [pr, comments, diff, repo, queue] = await Promise.allSettled([
+      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt,autoMergeRequest"]),
       ghJson(["api", `repos/${this.repo}/pulls/${n}/comments`, "--paginate", "--slurp"]),
       gh(["pr", "diff", n, "--repo", this.repo], { timeout: 60000 }),
       this.methods ? Promise.resolve(this.methods) : ghJson(["api", `repos/${this.repo}`, "--jq", "{squash: .allow_squash_merge, merge: .allow_merge_commit, rebase: .allow_rebase_merge}"]),
+      ghJson(["api", "graphql", "-F", `owner=${owner}`, "-F", `name=${name}`, "-F", `number=${this.number}`, "-f", "query=query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { isMergeQueueEnabled isInMergeQueue } } }", "--jq", ".data.repository.pullRequest"]),
     ]);
     if (pr.status === "rejected") {
       this.error = pr.reason?.message ?? String(pr.reason);
@@ -78,6 +82,7 @@ export class PullRequestView {
       this.diffError = diff.reason?.message ?? String(diff.reason);
     }
     if (repo.status === "fulfilled") this.methods = repo.value;
+    if (queue.status === "fulfilled") this.queue = { enabled: Boolean(queue.value?.isMergeQueueEnabled), inQueue: Boolean(queue.value?.isInMergeQueue) };
     this.rows = buildRows(this.files, this.threads, this.folded);
   }
 
@@ -86,24 +91,56 @@ export class PullRequestView {
     return m.squash ? "squash" : m.merge ? "merge" : m.rebase ? "rebase" : "squash";
   }
 
-  // Merge or close, after the confirm row said yes. The sidebar list re-reads
+  // What pressing Merge does to this PR: "queue" when the base branch has a
+  // merge queue, "now" when GitHub would merge it at once, else "auto"
+  // (auto-merge: GitHub merges it when the requirements are met).
+  mergePlan() {
+    if (this.queue.enabled) return "queue";
+    return ["CLEAN", "HAS_HOOKS", "UNSTABLE"].includes(this.pr?.mergeStateStatus) ? "now" : "auto";
+  }
+
+  mergeQuestion() {
+    const n = `#${this.number}`;
+    const plan = this.mergePlan();
+    if (plan === "queue") return `Add ${n} to the merge queue?`;
+    const method = `with ${this.mergeMethod()}`;
+    if (plan === "auto") return `Merge ${n} ${method} once GitHub allows it?`;
+    return this.pr?.ci === "failure" ? `CI failed on ${n}. Merge it ${method} anyway?` : `Merge ${n} ${method}?`;
+  }
+
+  // Merge or close, after the confirm row said yes. `--auto` makes gh merge a
+  // green PR at once, add a PR to its base's merge queue, and enable
+  // auto-merge on a blocked one instead of failing. The sidebar list re-reads
   // GitHub through the shared stamp.
   act(what, cx) {
     this.confirm = null;
     this.busy = what;
+    this.actError = null;
     cx.notify();
     cx.spawn(async (cx) => {
+      const n = String(this.number);
+      let failed = false;
       try {
-        const n = String(this.number);
-        if (what === "merge") await gh(["pr", "merge", n, "--repo", this.repo, `--${this.mergeMethod()}`], { timeout: 120000 });
+        if (what === "merge") await gh(["pr", "merge", n, "--repo", this.repo, `--${this.mergeMethod()}`, "--auto"], { timeout: 120000, allLines: true });
         else await gh(["pr", "close", n, "--repo", this.repo]);
-        notify({ title: `#${this.number} ${what === "merge" ? "merged" : "closed"}`, body: this.pr?.title ?? this.repo, level: "info" });
       } catch (e) {
-        notify({ title: `Couldn't ${what} #${this.number}`, body: String(e?.message ?? e), level: "error" });
+        failed = true;
+        this.actError = String(e?.message ?? e);
+        notify({ title: `Couldn't ${what} #${this.number}`, body: this.actError, level: "error" });
       }
-      this.busy = null;
       setShared(REFRESH, Date.now());
       await this.load();
+      this.busy = null;
+      if (!failed) {
+        const done =
+          what === "close" ? "closed"
+          : this.pr?.state === "MERGED" ? "merged"
+          : this.queue.inQueue ? "added to the merge queue"
+          : this.pr?.autoMergeRequest ? "will merge when GitHub allows it"
+          : this.queue.enabled ? "will join the merge queue when ready"
+          : "merge requested";
+        notify({ title: `#${this.number} ${done}`, body: this.pr?.title ?? this.repo, level: "info" });
+      }
       cx.notify();
     });
   }
@@ -146,11 +183,12 @@ export class PullRequestView {
     const ci = pr ? { success: ["CI passed", "ansi2"], failure: ["CI failed", "blocked"], pending: ["CI running", "working"], none: ["no CI", "dim"] }[pr.ci] : null;
     const review = pr && REVIEW[pr.reviewDecision];
     const merge = pr && open && (MERGE_STATE[pr.mergeStateStatus] ?? null);
+    const pending = Boolean(open && (this.queue.inQueue || pr.autoMergeRequest));
     const actions = this.confirm
       ? h_flex()
           .gap(6)
           .items_center()
-          .child(div().text_size(12).text_color(t.foreground).child(this.confirm === "merge" ? `Merge #${this.number} with ${this.mergeMethod()}?` : `Close #${this.number} without merging?`))
+          .child(div().text_size(12).text_color(t.foreground).child(this.confirm === "merge" ? this.mergeQuestion() : `Close #${this.number} without merging?`))
           .child(this.button(t, "pr-yes", "Yes", (cx) => this.act(this.confirm, cx), { tone: this.confirm === "merge" ? "ansi2" : "blocked" }))
           .child(this.button(t, "pr-no", "No", (cx) => { this.confirm = null; cx.notify(); }))
       : h_flex()
@@ -175,7 +213,7 @@ export class PullRequestView {
           .child(this.button(t, "pr-space", this.busy === "space" ? "Opening…" : "Space", (cx) => this.openSpace(cx), { disabled: !pr || Boolean(this.busy) }))
           .when(Boolean(pr), (el) => el.child(this.circleButton(t)))
           .child(this.button(t, "pr-close", this.busy === "close" ? "Closing…" : "Close", (cx) => { this.confirm = "close"; cx.notify(); }, { tone: "blocked", disabled: !open || Boolean(this.busy) }))
-          .child(this.button(t, "pr-merge", this.busy === "merge" ? "Merging…" : "Merge", (cx) => { this.confirm = "merge"; cx.notify(); }, { tone: "ansi2", disabled: !open || Boolean(this.busy) }));
+          .child(this.button(t, "pr-merge", this.busy === "merge" ? "Merging…" : pending ? "Queued" : "Merge", (cx) => { this.confirm = "merge"; cx.notify(); }, { tone: "ansi2", disabled: !open || pending || Boolean(this.busy) }));
 
     return v_flex()
       .flex_none()
@@ -210,10 +248,13 @@ export class PullRequestView {
               .when(pr.isDraft, (el) => el.child(this.chip(t, "draft", "dim")))
               .child(this.chip(t, ci[0], ci[1]))
               .when(Boolean(review), (el) => el.child(this.chip(t, review[0], review[1])))
-              .when(Boolean(merge), (el) => el.child(this.chip(t, merge[0], merge[1]))),
+              .when(Boolean(merge), (el) => el.child(this.chip(t, merge[0], merge[1])))
+              .when(open && this.queue.inQueue, (el) => el.child(this.chip(t, "in merge queue", "working")))
+              .when(open && !this.queue.inQueue && Boolean(pr.autoMergeRequest), (el) => el.child(this.chip(t, this.queue.enabled ? "queues when ready" : "auto-merge on", "working"))),
           ),
       )
       .when(Boolean(this.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(`GitHub: ${this.error}`)))
+      .when(Boolean(this.actError), (el) => el.child(div().text_size(12).text_color(t.blocked).child(`gh: ${this.actError}`)))
       .child(
         h_flex()
           .gap(4)

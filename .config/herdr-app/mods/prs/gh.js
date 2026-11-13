@@ -5,10 +5,12 @@ import { exec, home, notify, run, spaces, window } from "herdr";
 export const firstLine = (s) => (s ?? "").split("\n").find((l) => l.trim()) ?? "";
 
 // Runs gh with the user's environment. Finder launches may lack Homebrew on
-// PATH; gh lives there on this Mac. Rejects with gh's first error line.
-export async function gh(args, { timeout = 30000 } = {}) {
+// PATH; gh lives there on this Mac. Rejects with gh's first error line, or
+// with all of its stderr when `allLines` is set (gh explains refusals over
+// several lines).
+export async function gh(args, { timeout = 30000, allLines = false } = {}) {
   const r = await exec("/bin/sh", ["-c", 'PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH" exec gh "$@"', "sh", ...args], { timeout });
-  if (r.code !== 0) throw new Error(firstLine(r.stderr) || `gh exited with ${r.code}`);
+  if (r.code !== 0) throw new Error((allLines ? (r.stderr ?? "").trim() : firstLine(r.stderr)) || `gh exited with ${r.code}`);
   return r.stdout;
 }
 
