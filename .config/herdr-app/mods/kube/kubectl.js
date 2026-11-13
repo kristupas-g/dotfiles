@@ -272,7 +272,9 @@ export function age(iso, now = Date.now()) {
 // The resource name `kubectl` takes for a workload row's kind.
 export const RESOURCE = { Deployment: "deployments", StatefulSet: "statefulsets", Rollout: "rollouts.argoproj.io", HorizontalPodAutoscaler: "horizontalpodautoscalers", Pod: "pods" };
 
-export const del = (context, ns, res, name) => kubectl(context, ["delete", res, name, ...(ns ? ["-n", ns] : []), API_TIMEOUT], { timeout: 60000 });
+// Deletes one or more resources (names) of a kind; `--wait=false` so the
+// call returns when the API accepted it, not when the pods are gone.
+export const del = (context, ns, res, names) => kubectl(context, ["delete", res, ...(Array.isArray(names) ? names : [names]), ...(ns ? ["-n", ns] : []), "--wait=false", API_TIMEOUT], { timeout: 120000 });
 
 const patch = (context, ns, res, name, body, status = false) =>
   kubectl(context, ["patch", res, name, ...(ns ? ["-n", ns] : []), "--type", "merge", "-p", JSON.stringify(body), ...(status ? ["--subresource=status"] : []), API_TIMEOUT], { timeout: 60000 });

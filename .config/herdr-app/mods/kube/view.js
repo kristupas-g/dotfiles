@@ -13,16 +13,19 @@
 //   :  command (a resource, `ctx <name>`, `ns <name>`)   c / n  context / namespace pickers
 //   0  all namespaces   1–9  recent namespaces   /  filter   r  refresh   Esc  back
 //   j/k ↑/↓  move   Enter  open (a workload's pods, a pod's details, a namespace)
-//   d describe   y yaml   e edit (nvim)   l logs   s shell   ⌃d delete
+//   d describe   y yaml   l logs   e edit (nvim)   s shell   ⌃d delete   D delete every troubled pod listed
 //   R restart   P promote   F promote fully   A abort   U retry (rollouts)   h edit the HPA
-// describe/yaml/edit/logs/shell run kubectl in a new terminal tab of the space
-// (started through hc, so the tab closes when the program ends).
+// describe and yaml show in the tab (a read-only code view; Esc goes back, e
+// edits). logs is a log view in the tab: the last 500 lines, then every 2 s
+// the lines since (`--since-time`), one container or all, following the end
+// (f), with timestamps (t) and the filter. edit and shell run in a new terminal
+// tab of the space (started through hc, so the tab closes when the program ends).
 
 import { div, svg } from "gpui-kit";
-import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
-import { focused, hc, home, nextCommand, notify, props, run, setShared, shared, spaces, theme } from "herdr";
+import { v_flex, h_flex, InputState, Input, ScrollHandle, EditorState, Editor, VirtualListScrollHandle, Scrollbar, v_virtual_list } from "gpui-base";
+import { exec, focused, home, nextCommand, notify, props, run, setShared, settings, shared, spaces, theme } from "herdr";
 import { randomBytes } from "crypto";
-import { PATH, contexts, namespaces, workloads, pods, table, apiResources, useContext, health, hpaLine, age, authError, RESOURCE, del, restart, rolloutAction } from "./kubectl.js";
+import { PATH, kubectl, contexts, namespaces, workloads, pods, table, apiResources, useContext, health, hpaLine, age, authError, RESOURCE, del, restart, rolloutAction } from "./kubectl.js";
 
 const EVERY = 30_000;
 const LAST = "kube.last";
@@ -30,6 +33,9 @@ const RECENT = "kube.recent";
 const KIND = { Deployment: "deploy", Rollout: "rollout", StatefulSet: "sts" };
 const ROW = 28;
 const PICK_ROW = 30;
+const LOG_ROW = 18;
+const LOG_MAX = 5000;
+const LOG_TAIL = 500;
 const VIEWS = [
   { id: "workloads", name: "workloads", aliases: ["wl", "workloads"], hint: "deployments, rollouts and statefulsets with HPA" },
   { id: "pods", name: "problems", aliases: ["pp", "problems", "problem"], hint: "pods that aren't running and ready" },
@@ -60,6 +66,11 @@ export class KubeView {
     this.view = p.tab === "pods" ? { kind: "pods" } : { kind: "workloads" };
     this.allNs = Boolean(p.allNs);
     this.pendingResource = p.resource ?? null;
+    this.pendingPod = p.pod && ["logs", "describe", "yaml"].includes(p.action) ? { name: p.pod, action: p.action } : null;
+    this.back = null;
+    this.text = null;
+    this.log = null;
+    this.logScroll = VirtualListScrollHandle.new();
     this.podsOf = null;
     this.contexts = [];
     this.current = null;
@@ -95,7 +106,8 @@ export class KubeView {
     this.handle = cx.focus_handle();
     this.scroll = ScrollHandle.new();
     this.pickScroll = ScrollHandle.new();
-    cx.timer.every(EVERY, (cx) => { if (!this.paused && !this.picker && !this.confirm) this.refresh(cx); });
+    cx.timer.every(EVERY, (cx) => { if (!this.paused && !this.picker && !this.confirm && !["text", "logs"].includes(this.view.kind)) this.refresh(cx); });
+    cx.timer.every(2000, (cx) => { if (this.view.kind === "logs" && this.log && !this.log.busy && !this.log.error) this.loadLogs(cx); });
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -128,6 +140,12 @@ export class KubeView {
         const res = this.findResource(name);
         if (res) return this.openResource(res, cx);
       }
+      if (this.pendingPod) {
+        const { name, action } = this.pendingPod;
+        this.pendingPod = null;
+        const r = { key: `${this.namespace}/${name}`, name, ns: this.namespace, kind: "Pod", res: "pods" };
+        return action === "logs" ? this.openLogs(r, cx) : this.openText(action, r, cx);
+      }
       this.refresh(cx, true);
     });
   }
@@ -143,11 +161,13 @@ export class KubeView {
 
   // What the shown list needs, as one key; a load whose key is stale is thrown away.
   want() {
-    return JSON.stringify([this.context, this.namespace, this.view.kind, this.view.res?.full ?? null, this.allNs, this.podsOf?.key ?? null]);
+    return JSON.stringify([this.context, this.namespace, this.view.kind, this.view.res?.full ?? null, this.allNs, this.podsOf?.key ?? null, this.text?.key ?? null, this.log?.key ?? null]);
   }
 
   refresh(cx, manual = false) {
     if (manual) this.paused = false;
+    if (this.view.kind === "text") return this.loadText(cx);
+    if (this.view.kind === "logs") return this.loadLogs(cx, true);
     if (this.loading || !this.context || !this.namespace) return;
     this.loading = true;
     this.slow = false;
@@ -271,6 +291,7 @@ export class KubeView {
   // The shown rows, each as { key, name, ns, kind, res, ... } with what its actions need.
   rows() {
     const v = this.view;
+    if (v.kind === "text" || v.kind === "logs") return [];
     if (v.kind === "workloads") return this.workloads.filter((w) => this.matches(w.name)).map((w) => ({ key: w.key, name: w.name, ns: w.ns, kind: w.kind, res: RESOURCE[w.kind], w }));
     if (v.kind === "pods") return this.pods.filter((p) => this.matches(p.name)).map((p) => ({ key: p.key, name: p.name, ns: p.ns, kind: "Pod", res: "pods", pod: p }));
     return this.table.rows.filter((r) => this.matches(r.name)).map((r) => ({ key: `${r.ns ?? ""}/${r.name}`, name: r.name, ns: v.res.namespaced ? r.ns : null, kind: v.res.kind, res: v.res.full, cells: r.cells }));
@@ -305,6 +326,11 @@ export class KubeView {
 
   // ---- actions on the selected row ----
 
+  // hc (herdr-core) as a program, like kubectl: never on the UI thread.
+  hcx(args, timeout = 30000) {
+    return exec("/bin/sh", ["-c", `${PATH}:$HOME/.local/bin; exec hc "$@"`, "sh", ...args], { timeout });
+  }
+
   // A terminal tab of the shown space running `script` (sh), started through
   // hc so the tab closes when the program ends. Resolves with the terminal's
   // address.
@@ -313,7 +339,7 @@ export class KubeView {
     if (!sp || sp.machine) throw new Error("No local space is shown");
     const id = `tbk${randomBytes(6).toString("hex")}`;
     const cwd = focused()?.cwd || sp.folder || home();
-    const r = await hc(["run", "--bg", "--json", "--no-parent", "--cwd", cwd, "--label", `herdr.space=${sp.id}`, "--label", `herdr.tab=${id}`, "--", "sh", "-c", `${PATH}; export PATH; ${script}`]);
+    const r = await this.hcx(["run", "--bg", "--json", "--no-parent", "--cwd", cwd, "--label", `herdr.space=${sp.id}`, "--label", `herdr.tab=${id}`, "--", "sh", "-c", `${PATH}; export PATH; ${script}`]);
     if (r.code !== 0) throw new Error(r.stderr?.trim() || "hc run failed");
     for (let i = 0; i < 30 && !spaces().some((s) => s.tabs.some((t) => t.id === id)); i++) await cx.sleep(100);
     run("tab.rename", { id, name: title });
@@ -347,11 +373,148 @@ export class KubeView {
   }
 
   describe(r, cx) {
-    this.act("describe", (cx) => this.program(`describe ${r.name}`, `${shell(...this.kube(r), "describe", r.res, r.name)} 2>&1 | nvim -R -c 'setlocal buftype=nofile' -`, cx), cx);
+    this.openText("describe", r, cx);
   }
 
   yaml(r, cx) {
-    this.act("show yaml", (cx) => this.program(`${r.name}.yaml`, `${shell(...this.kube(r), "get", r.res, r.name, "-o", "yaml")} 2>&1 | nvim -R -c 'set ft=yaml' -`, cx), cx);
+    this.openText("yaml", r, cx);
+  }
+
+  // Leaves the list view for a text or log view; Esc comes back to it.
+  leave(view) {
+    if (!["text", "logs"].includes(this.view.kind)) this.back = { view: this.view, selKey: this.selKey, podsOf: this.podsOf };
+    this.view = view;
+    this.confirm = null;
+  }
+
+  goBack(cx) {
+    const b = this.back;
+    this.text = null;
+    this.log = null;
+    this.view = b?.view ?? { kind: "workloads" };
+    this.selKey = b?.selKey ?? null;
+    this.podsOf = b?.podsOf ?? null;
+    this.back = null;
+    cx.notify();
+    if (this.loaded !== this.want()) this.refresh(cx, true);
+  }
+
+  // describe or yaml of a resource, as a read-only code view in the tab.
+  openText(kind, r, cx) {
+    this.leave({ kind: "text" });
+    this.text = { kind, r, key: `${kind}:${r.res}/${r.ns ?? ""}/${r.name}`, state: null, error: null, busy: false, lines: 0 };
+    cx.notify();
+    this.loadText(cx);
+  }
+
+  loadText(cx) {
+    const t = this.text;
+    if (!t || t.busy) return;
+    t.busy = true;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const r = t.r;
+      const args = t.kind === "yaml" ? ["get", r.res, r.name, "-o", "yaml"] : ["describe", r.res, r.name];
+      try {
+        const out = await kubectl(this.context, [...args, ...(r.ns ? ["-n", r.ns] : []), "--request-timeout=25s"], { parse: false, timeout: 60000 });
+        if (this.text !== t) return;
+        t.state = EditorState.new({ ...(t.kind === "yaml" ? { language: "yaml" } : {}), value: out, readonly: true, line_numbers: t.kind === "yaml", folding: t.kind === "yaml", font_family: settings().font_family ?? "JetBrains Mono", font_size: 12 });
+        t.lines = out.split("\n").length;
+        t.error = null;
+      } catch (e) {
+        t.error = String(e?.message ?? e);
+      }
+      t.busy = false;
+      cx.notify();
+    });
+  }
+
+  // Shows a pod's logs in the tab: the last LOG_TAIL lines, then the lines
+  // since every 2 s (the timer in init). One container, or all with a prefix.
+  openLogs(r, cx) {
+    if (r.res !== "pods") return;
+    this.leave({ kind: "logs" });
+    this.log = { r, key: `logs:${r.ns}/${r.name}`, containers: [], init: [], container: null, lines: [], since: null, follow: true, timestamps: false, busy: false, error: null, loaded: false };
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const l = this.log;
+      try {
+        const names = await kubectl(this.context, ["get", "pod", r.name, "-n", r.ns, "-o", "jsonpath={range .spec.initContainers[*]}i:{.name}{\"\\n\"}{end}{range .spec.containers[*]}c:{.name}{\"\\n\"}{end}", "--request-timeout=25s"], { parse: false });
+        if (this.log !== l) return;
+        for (const line of names.split("\n")) {
+          if (line.startsWith("i:")) l.init.push(line.slice(2));
+          else if (line.startsWith("c:")) l.containers.push(line.slice(2));
+        }
+        if (l.containers.length === 1) l.container = l.containers[0];
+      } catch (e) {
+        l.error = String(e?.message ?? e);
+      }
+      cx.notify();
+      this.loadLogs(cx, true);
+    });
+  }
+
+  // The log lines: all from the tail (initial), else those since the last one seen.
+  loadLogs(cx, initial = false) {
+    const l = this.log;
+    if (!l || l.busy || (!initial && !l.loaded)) return;
+    l.busy = true;
+    if (initial) l.error = null;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const r = l.r;
+      const which = l.container ? ["-c", l.container] : ["--all-containers", "--prefix"];
+      const range = initial || !l.since ? [`--tail=${LOG_TAIL}`] : [`--since-time=${l.since}`];
+      try {
+        const out = await kubectl(this.context, ["logs", r.name, "-n", r.ns, ...which, ...range, "--timestamps", "--request-timeout=25s"], { parse: false, timeout: 60000 });
+        if (this.log !== l) return;
+        const fresh = [];
+        for (const raw of out.split("\n")) {
+          if (!raw) continue;
+          let line = raw;
+          let c = l.container ?? "";
+          const m = /^\[pod\/[^/\]]+\/([^\]]+)\] (.*)$/.exec(line);
+          if (m) [c, line] = [m[1], m[2]];
+          const sp = line.indexOf(" ");
+          const ts = sp > 0 ? line.slice(0, sp) : "";
+          fresh.push({ c, ts, text: sp > 0 ? line.slice(sp + 1) : line });
+        }
+        if (initial) l.lines = fresh;
+        else {
+          // --since-time includes the last second again: drop what's already there.
+          const seen = new Set(l.lines.slice(-200).map((x) => `${x.c}|${x.ts}|${x.text}`));
+          for (const x of fresh) if (!seen.has(`${x.c}|${x.ts}|${x.text}`)) l.lines.push(x);
+        }
+        if (l.lines.length > LOG_MAX) l.lines.splice(0, l.lines.length - LOG_MAX);
+        const last = l.lines.map((x) => x.ts).filter(Boolean).sort().pop();
+        if (last) l.since = last;
+        l.loaded = true;
+        l.error = null;
+        if (l.follow && fresh.length) this.logScroll.scroll_to_bottom();
+      } catch (e) {
+        l.error = String(e?.message ?? e);
+      }
+      l.busy = false;
+      cx.notify();
+    });
+  }
+
+  // The next container to show: all → each container → all.
+  nextContainer(cx) {
+    const l = this.log;
+    if (!l) return;
+    const all = [null, ...l.containers, ...l.init];
+    l.container = all[(all.indexOf(l.container) + 1) % all.length];
+    l.lines = [];
+    l.since = null;
+    l.loaded = false;
+    cx.notify();
+    this.loadLogs(cx, true);
+  }
+
+  // The old way: `kubectl logs -f` in a terminal tab.
+  logsTerminal(r, cx) {
+    this.act("show logs in a terminal", (cx) => this.program(`logs ${r.name}`, `exec ${shell(...this.kube(r), "logs", "-f", "--all-containers", "--tail=500", r.name)}`, cx), cx);
   }
 
   // `kubectl edit` with nvim; when it ends, the list is read again and the
@@ -362,7 +525,7 @@ export class KubeView {
       if (!addr) return;
       cx.spawn(async (cx) => {
         for (;;) {
-          const w = await hc(["wait", addr, "--json", "--timeout", "170"]);
+          const w = await this.hcx(["wait", addr, "--json", "--timeout", "170"], 200000);
           let j = null;
           try { j = JSON.parse(w.stdout); } catch { break; }
           const ended = j?.ended ?? j?.wait?.ended;
@@ -379,7 +542,7 @@ export class KubeView {
   }
 
   logs(r, cx) {
-    this.act("show logs", (cx) => this.program(`logs ${r.name}`, `exec ${shell(...this.kube(r), "logs", "-f", "--all-containers", "--tail=500", r.name)}`, cx), cx);
+    this.openLogs(r, cx);
   }
 
   shellInto(r, cx) {
@@ -400,6 +563,32 @@ export class KubeView {
     this.ask(`Delete ${r.kind.toLowerCase()} ${r.name}${this.prodNote()}?`, "blocked", (cx) => this.act("delete", async (cx) => {
       await del(this.context, r.ns, r.res, r.name);
       notify({ title: `${r.name} deleted`, body: `${r.kind} in ${r.ns ?? this.context}`, level: "info", timeout: 3000 });
+      this.refresh(cx, true);
+    }, cx), cx);
+  }
+
+  // Every troubled pod in the shown list (the filter narrows it), one
+  // `kubectl delete` per namespace. Only in the problem pods view: a workload's
+  // pods have R for that.
+  removeAll(cx) {
+    if (this.view.kind !== "pods" || this.podsOf) return;
+    const rows = this.rows().filter((r) => r.pod && !r.pod.deleting);
+    if (!rows.length) return notify({ title: "Nothing to delete", body: "No troubled pods in the list (terminating ones are left alone)", level: "info", timeout: 3000 });
+    const byNs = new Map();
+    for (const r of rows) byNs.set(r.ns, [...(byNs.get(r.ns) ?? []), r.name]);
+    const where = byNs.size === 1 ? [...byNs.keys()][0] : `${byNs.size} namespaces`;
+    this.ask(`Delete ${rows.length} troubled pod${rows.length === 1 ? "" : "s"} in ${where}${this.prodNote()}?${this.filterText.trim() ? " (the filtered ones)" : ""}`, "blocked", (cx) => this.act(`delete ${rows.length} pods`, async (cx) => {
+      let done = 0;
+      const errors = [];
+      for (const [ns, names] of byNs) {
+        try {
+          await del(this.context, ns, "pods", names);
+          done += names.length;
+        } catch (e) {
+          errors.push(`${ns}: ${String(e?.message ?? e)}`);
+        }
+      }
+      notify({ title: `${done} pod${done === 1 ? "" : "s"} deleted`, body: errors.join("\n") || `Their controllers will make new ones`, level: errors.length ? "warning" : "info", timeout: 5000 });
       this.refresh(cx, true);
     }, cx), cx);
   }
@@ -573,6 +762,38 @@ export class KubeView {
       cx.stop_propagation();
       return cx.notify();
     }
+    if (this.view.kind === "text" && this.text) {
+      const tr = this.text.r;
+      if (k === "escape") this.goBack(cx);
+      else if (k === "e") this.edit(tr, cx);
+      else if (k === "r") this.loadText(cx);
+      else if (k === "y" && this.text.kind !== "yaml") this.openText("yaml", tr, cx);
+      else if (k === "d" && this.text.kind !== "describe") this.openText("describe", tr, cx);
+      else if (k === "l" && tr.res === "pods") this.openLogs(tr, cx);
+      else if (k === "s" && tr.res === "pods") this.shellInto(tr, cx);
+      else return;
+      cx.stop_propagation();
+      return cx.notify();
+    }
+    if (this.view.kind === "logs" && this.log) {
+      const l = this.log;
+      if (k === "escape") this.goBack(cx);
+      else if (k === "f") { l.follow = !l.follow; if (l.follow) this.logScroll.scroll_to_bottom(); }
+      else if (k === "c") this.nextContainer(cx);
+      else if (k === "t") l.timestamps = !l.timestamps;
+      else if (k === "r") this.loadLogs(cx, true);
+      else if (k === "/") this.filter.focus();
+      else if (k === "o") this.logsTerminal(l.r, cx);
+      else if (k === "C") { l.lines = []; }
+      else if (k === "d") this.openText("describe", l.r, cx);
+      else if (k === "y") this.openText("yaml", l.r, cx);
+      else if (k === "s") this.shellInto(l.r, cx);
+      else if (k === "g") this.logScroll.scroll_to_item(0);
+      else if (k === "G") this.logScroll.scroll_to_bottom();
+      else return;
+      cx.stop_propagation();
+      return cx.notify();
+    }
     const r = this.selected();
     if (m.control) {
       if (k === "d" && r) this.remove(r, cx);
@@ -599,6 +820,7 @@ export class KubeView {
     else if (k === "s" && r?.res === "pods") this.shellInto(r, cx);
     else if (k === "h" && r?.w?.hpa) this.edit(r, cx, RESOURCE.HorizontalPodAutoscaler, r.w.hpa.name);
     else if (k === "R" && r?.w) this.restartRow(r, cx);
+    else if (k === "D") this.removeAll(cx);
     else if (k === "P" && r?.kind === "Rollout") this.rollout(r, "promote", cx);
     else if (k === "F" && r?.kind === "Rollout") this.rollout(r, "promote", cx, true);
     else if (k === "A" && r?.kind === "Rollout") this.rollout(r, "abort", cx);
@@ -692,6 +914,7 @@ export class KubeView {
       ? div().text_size(11.5).text_color(t.blocked).child(`kubectl: ${this.error}${authError(this.error) ? " · If a browser opened, finish the login there, then refresh (r)." : ""}`)
       : this.slow ? div().text_size(11.5).text_color(t.working).child("Waiting for kubectl… a browser login may have opened.")
       : null;
+    const working = this.busy ? `${this.busy}…` : this.text?.busy ? `${this.text.kind} ${this.text.r.name}…` : this.log && !this.log.loaded && !this.log.error ? `logs of ${this.log.r.name}…` : this.loading && this.slow ? "waiting for kubectl…" : null;
     const summary = v.kind === "workloads" && this.workloads.length ? (unhealthy ? [`${unhealthy} not healthy`, t.working] : ["all healthy", t.dim])
       : v.kind === "pods" && !this.podsOf && this.loaded === this.want() ? (this.pods.length ? [`${this.pods.length} troubled`, t.working] : ["no troubled pods", t.dim])
       : v.kind === "resource" && this.loaded === this.want() ? [`${this.table.rows.length} ${v.res.name}`, t.dim]
@@ -714,7 +937,8 @@ export class KubeView {
           .child(this.iconButton(t, "kube-refresh", "mods/kube/icons/refresh.svg", `Refreshed ${since}. Refresh now (r)${this.paused ? ". Auto-refresh is paused until then" : ""}`, (cx) => this.refresh(cx, true), { spin: this.loading }))
           .child(this.iconButton(t, "kube-use", "mods/workspace-chrome/terminal.svg", this.current === this.context ? `${this.context} is kubectl's current context` : `Make ${this.context} kubectl's current context, for your shells`, (cx) => this.makeCurrent(cx), { on: this.current === this.context }))
           .child(div().flex_1())
-          .when(Boolean(summary), (el) => el.child(div().text_size(11.5).text_color(summary[1]).child(summary[0]))),
+          .when(Boolean(working), (el) => el.child(h_flex().gap(6).items_center().px(8).h(22).rounded(6).bg(t.accent + "1f").child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.accent).spin(900)).child(div().text_size(11.5).text_color(t.accent).child(working))))
+          .when(Boolean(summary) && !working, (el) => el.child(div().text_size(11.5).text_color(summary[1]).child(summary[0]))),
       )
       .when(Boolean(status), (el) => el.child(status))
       .child(
@@ -725,6 +949,8 @@ export class KubeView {
           .child(this.tabButton(t, "kube-tab-pods", `Problem pods${v.kind === "pods" && !this.podsOf ? ` · ${this.pods.length}` : ""}`, v.kind === "pods" && !this.podsOf, (cx) => this.setView({ kind: "pods" }, cx)))
           .when(Boolean(this.podsOf), (el) => el.child(this.tabButton(t, "kube-tab-of", `Pods of ${this.podsOf.name} · ${this.pods.length}`, true, () => {}, (cx) => this.setView({ kind: "pods" }, cx))))
           .when(v.kind === "resource", (el) => el.child(this.tabButton(t, "kube-tab-res", `:${v.res.name}${this.loaded === this.want() ? ` · ${this.table.rows.length}` : ""}`, true, () => {}, (cx) => this.setView({ kind: "workloads" }, cx))))
+          .when(v.kind === "text" && Boolean(this.text), (el) => el.child(this.tabButton(t, "kube-tab-text", `${this.text.kind} ${this.text.r.name}`, true, () => {}, (cx) => this.goBack(cx))))
+          .when(v.kind === "logs" && Boolean(this.log), (el) => el.child(this.tabButton(t, "kube-tab-logs", `logs ${this.log.r.name}${this.log.container ? ` · ${this.log.container}` : ""}`, true, () => {}, (cx) => this.goBack(cx))))
           .child(
             div()
               .id("kube-cmd")
@@ -990,6 +1216,74 @@ export class KubeView {
       .child(this.list(t, `kube-res-${res.full}`, list, this.loading && !this.table.rows.length ? "Loading…" : this.table.rows.length ? "Nothing matches the filter." : this.error ? "" : this.loaded === this.want() ? `No ${res.name} ${res.namespaced ? (this.allNs ? "in the cluster" : `in ${this.namespace}`) : "here"}.` : ""));
   }
 
+  // describe or yaml as a read-only code view.
+  textBody(t) {
+    const x = this.text;
+    if (!x) return div().flex_1();
+    const note = (msg, color) => v_flex().flex_1().items_center().justify_center().child(div().text_size(12).text_color(color).child(msg));
+    if (x.error) return note(`kubectl: ${x.error}`, t.blocked);
+    if (!x.state) return note(`Reading ${x.kind} of ${x.r.name}…`, t.dim);
+    return v_flex().flex_1().min_h(0).child(Editor.new(x.state).size_full());
+  }
+
+  // The log view: a toolbar (containers, follow, count) and a virtual list of lines.
+  logsBody(t) {
+    const l = this.log;
+    if (!l) return div().flex_1();
+    const q = this.filterText.trim().toLowerCase();
+    const lines = q ? l.lines.filter((x) => x.text.toLowerCase().includes(q) || x.c.toLowerCase().includes(q)) : l.lines;
+    const mono = settings().font_family ?? "JetBrains Mono";
+    const chip = (id, label, on, onClick, tip) =>
+      div().id(id).h(20).px(7).flex().items_center().rounded(5).border_1().border_color(on ? t.accent : t.border).text_size(11).text_color(on ? t.foreground : t.muted).cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip).on_click((_e, cx) => { onClick(cx); cx.notify(); }).child(label);
+    const pick = (name) => (cx) => { l.container = name; l.lines = []; l.since = null; l.loaded = false; this.loadLogs(cx, true); };
+    const all = l.containers.length + l.init.length > 1;
+    const toolbar = h_flex()
+      .flex_none()
+      .px(14)
+      .h(30)
+      .gap(6)
+      .items_center()
+      .border_b(1)
+      .border_color(t.border)
+      .when(all, (el) => el.child(chip("log-all", "all", l.container === null, pick(null), "Every container, each line prefixed (c cycles)")))
+      .children(l.containers.map((c) => chip(`log-c-${c}`, c, l.container === c, pick(c), `Only ${c}`)))
+      .children(l.init.map((c) => chip(`log-i-${c}`, `init ${c}`, l.container === c, pick(c), `Only the init container ${c}`)))
+      .child(div().flex_1())
+      .child(chip("log-ts", "time", l.timestamps, () => { l.timestamps = !l.timestamps; }, "Show timestamps (t)"))
+      .child(chip("log-follow", l.follow ? "following" : "follow", l.follow, () => { l.follow = !l.follow; if (l.follow) this.logScroll.scroll_to_bottom(); }, "Keep the end in view as lines arrive (f)"))
+      .child(div().text_size(11).text_color(t.dim).child(`${lines.length}${q ? ` of ${l.lines.length}` : ""} lines${l.busy ? " · reading…" : ""}`));
+    const colors = { "": t.muted };
+    const palette = [t.ansi4, t.ansi5, t.ansi6, t.ansi3, t.ansi2, t.ansi1];
+    [...l.containers, ...l.init].forEach((c, i) => { colors[c] = palette[i % palette.length]; });
+    const row = (x) => {
+      const bad = /\b(error|fatal|panic|exception|traceback)\b/i.test(x.text);
+      const warn = !bad && /\b(warn|warning)\b/i.test(x.text);
+      return h_flex()
+        .h(LOG_ROW)
+        .items_center()
+        .px(10)
+        .gap(8)
+        .whitespace_nowrap()
+        .text_size(11.5)
+        .font_family(mono)
+        .when(l.timestamps, (el) => el.child(div().flex_none().text_color(t.dim).child(x.ts.replace(/\.\d+Z$/, "Z").replace("T", " "))))
+        .when(!l.container && Boolean(x.c), (el) => el.child(div().flex_none().w(110).truncate().text_color(colors[x.c] ?? t.muted).child(x.c)))
+        .child(div().flex_1().min_w(0).truncate().text_color(bad ? t.blocked : warn ? t.working : t.foreground).child(x.text));
+    };
+    const empty = l.error ? `kubectl: ${l.error}` : !l.loaded ? `Reading the last ${LOG_TAIL} lines…` : q ? "No line matches the filter." : "No log lines yet.";
+    return v_flex()
+      .flex_1()
+      .min_h(0)
+      .child(toolbar)
+      .child(
+        lines.length
+          ? div().flex_1().min_h(0).relative()
+              .child(v_virtual_list("kube-log", lines.length, LOG_ROW, (i) => `${i}:${lines[i].ts}`, (range) => lines.slice(range.start, range.end).map(row)).size_full().track_scroll(this.logScroll))
+              .child(Scrollbar.vertical("kube-log").absolute().inset_0())
+          : div().flex_1().px(14).py(10).text_size(12).text_color(l.error ? t.blocked : t.dim).child(empty),
+      );
+  }
+
   // The bottom line: where we are, and the keys that apply now (or the question being asked).
   footer(t, rows) {
     const r = this.selected(rows);
@@ -997,9 +1291,15 @@ export class KubeView {
       .child(div().px(4).h(16).rounded(3).bg(t.raised).text_size(10).text_color(t.muted).flex().items_center().child(cap))
       .child(div().text_size(11).text_color(t.dim).child(label));
     const v = this.view;
-    const where = `${v.kind === "resource" ? `:${v.res.name}` : v.kind === "workloads" ? "workloads" : this.podsOf ? `pods of ${this.podsOf.name}` : "problem pods"} · ${this.context ?? "?"} / ${this.allNs ? "all" : this.namespace ?? "?"}`;
+    const where = `${v.kind === "text" ? `${this.text?.kind} ${this.text?.r.name}` : v.kind === "logs" ? `logs ${this.log?.r.name}` : v.kind === "resource" ? `:${v.res.name}` : v.kind === "workloads" ? "workloads" : this.podsOf ? `pods of ${this.podsOf.name}` : "problem pods"} · ${this.context ?? "?"} / ${this.allNs ? "all" : this.namespace ?? "?"}`;
     let hints;
-    if (this.confirm) {
+    if (v.kind === "text" && this.text) {
+      const pod = this.text.r.res === "pods";
+      hints = h_flex().gap(10).items_center().children([key("Esc", "back"), key("e", "edit"), key("r", "reload"), this.text.kind === "yaml" ? key("d", "describe") : key("y", "yaml"), ...(pod ? [key("l", "logs"), key("s", "shell")] : [])]);
+    } else if (v.kind === "logs" && this.log) {
+      const l = this.log;
+      hints = h_flex().gap(10).items_center().children([key("Esc", "back"), key("f", l.follow ? "following" : "follow"), key("c", "container"), key("t", "time"), key("/", "filter"), key("g/G", "top/end"), key("C", "clear"), key("o", "terminal"), key("d", "describe"), key("s", "shell")]);
+    } else if (this.confirm) {
       hints = h_flex().gap(10).items_center()
         .child(div().text_size(12).text_color(t[this.confirm.tone] ?? t.foreground).child(this.confirm.text))
         .child(key("y", "yes"))
@@ -1017,6 +1317,7 @@ export class KubeView {
         if (r.kind === "Rollout") list.push(key("P", "promote"), key("F", "full"), r.w?.abort ? key("U", "retry") : key("A", "abort"));
         list.push(key("⌃d", "delete"));
       } else list.push(key("j/k", "select"));
+      if (v.kind === "pods" && !this.podsOf && this.pods.length) list.push(key("D", "delete all"));
       hints = h_flex().gap(10).items_center().children(list);
     }
     return h_flex()
@@ -1117,7 +1418,7 @@ export class KubeView {
       .text_color(t.foreground)
       .text_size(13)
       .child(this.header(t))
-      .child(v.kind === "workloads" ? this.workloadsBody(t, rows) : v.kind === "pods" ? this.podsBody(t, rows) : this.resourceBody(t, rows))
+      .child(v.kind === "workloads" ? this.workloadsBody(t, rows) : v.kind === "pods" ? this.podsBody(t, rows) : v.kind === "text" ? this.textBody(t) : v.kind === "logs" ? this.logsBody(t) : this.resourceBody(t, rows))
       .child(this.footer(t, rows))
       .when(Boolean(this.picker), (el) => el.child(this.pickerPanel(t)));
   }
