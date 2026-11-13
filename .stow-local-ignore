@@ -4,6 +4,8 @@
 ^/\.claude$
 ^/\.codegraph$
 ^/README.*
+^/AGENTS\.md$
+^/CLAUDE\.md$
 ^/nix$
 ^/aerospace$
 ^/k9s$
