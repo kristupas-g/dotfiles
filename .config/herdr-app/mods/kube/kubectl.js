@@ -1,7 +1,8 @@
-// Reading clusters through `kubectl`. Every call names its context (`--context`),
-// so the mod never depends on, or changes, kubectl's current context. The JSON
-// is slimmed by `jq` inside the shell before it crosses into the mod, so a big
-// namespace stays well under exec's 8 MiB.
+// Reading and changing clusters through `kubectl`. Every call names its context
+// (`--context`), so the mod never depends on, or changes, kubectl's current
+// context. JSON is slimmed by `jq` inside the shell before it crosses into the
+// mod, so a big namespace stays well under exec's 8 MiB; other resources come
+// as kubectl's own table (`-o wide`), parsed by column.
 //
 // Auth is kubelogin (`kubectl oidc-login`, the exec plugin in ~/.kube/config):
 // a valid token in ~/.kube/cache/oidc-login is used silently, a stale one is
@@ -10,7 +11,7 @@
 
 import { exec } from "herdr";
 
-const PATH = 'PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"';
+export const PATH = 'PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"';
 const API_TIMEOUT = "--request-timeout=25s";
 
 export const firstLine = (s) => (s ?? "").split("\n").find((l) => l.trim()) ?? "";
@@ -28,18 +29,14 @@ function clean(stderr) {
 export const authError = (msg) => /oidc|login|authenticat|unauthorized|token|forbidden|credential/i.test(msg ?? "");
 
 // Runs kubectl, optionally piping its JSON through a jq filter. Resolves with
-// the parsed JSON (or the raw stdout without a filter). Rejects with the
-// cleaned error. `tolerate` is a regexp of stderr lines that don't make the
-// call a failure when stdout still parses (a missing CRD in a multi-kind get).
-export async function kubectl(context, args, { jq = null, timeout = 150000, tolerate = null, parse = Boolean(jq) } = {}) {
+// the parsed JSON (with a filter), else the raw stdout. Rejects with the
+// cleaned error.
+export async function kubectl(context, args, { jq = null, timeout = 150000, parse = Boolean(jq) } = {}) {
   const ctx = context ? ["--context", context] : [];
   const r = jq
     ? await exec("/bin/sh", ["-c", `${PATH}; set -o pipefail; f="$1"; shift; kubectl "$@" | jq -c "$f"`, "sh", jq, ...ctx, ...args], { timeout })
     : await exec("/bin/sh", ["-c", `${PATH}; exec kubectl "$@"`, "sh", ...ctx, ...args], { timeout });
-  if (r.code !== 0) {
-    const tolerable = tolerate && (r.stderr ?? "").split("\n").filter((l) => l.trim()).every((l) => tolerate.test(l));
-    if (!tolerable || !r.stdout.trim()) throw new Error(clean(r.stderr) || `kubectl exited with ${r.code}`);
-  }
+  if (r.code !== 0) throw new Error(clean(r.stderr) || `kubectl exited with ${r.code}`);
   if (!parse) return r.stdout;
   try {
     return JSON.parse(r.stdout);
@@ -61,12 +58,63 @@ export const useContext = (name) => kubectl(null, ["config", "use-context", name
 
 export const namespaces = (context) => kubectl(context, ["get", "namespaces", API_TIMEOUT, "-o", "json"], { jq: "[.items[].metadata.name] | sort" });
 
-// Deployments, Argo Rollouts and StatefulSets of a namespace, each with its
-// HPA when one targets it. One `get` for all four kinds; a cluster without the
-// Rollout CRD is retried without it and remembered.
+// ---- tables ----
+
+// kubectl's text table, by the header's column starts (cells never start
+// before their header; a cell may hold single spaces, like an event message).
+export function parseTable(text) {
+  const lines = text.split("\n").filter((l) => l.trim());
+  if (!lines.length) return { columns: [], rows: [] };
+  const header = lines[0];
+  const starts = [];
+  const re = /(?:^|\s{2,})(\S)/g;
+  let m;
+  while ((m = re.exec(header))) starts.push(m.index + m[0].length - 1);
+  const slice = (line, i) => line.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : undefined).trim();
+  const columns = starts.map((_s, i) => slice(header, i));
+  const rows = lines.slice(1).map((line) => columns.map((_c, i) => slice(line, i)));
+  return { columns, rows };
+}
+
+// The context's resource kinds: [{ name, short: [], group, version, namespaced, kind, full }].
+// `full` is what `kubectl get` takes without ambiguity (name.group).
+export async function apiResources(context) {
+  const text = await kubectl(context, ["api-resources", API_TIMEOUT], { timeout: 60000 });
+  const { columns, rows } = parseTable(text);
+  const col = (name) => columns.indexOf(name);
+  const [iName, iShort, iVer, iNs, iKind] = ["NAME", "SHORTNAMES", "APIVERSION", "NAMESPACED", "KIND"].map(col);
+  return rows
+    .filter((r) => r[iName])
+    .map((r) => {
+      const ver = r[iVer] ?? "";
+      const group = ver.includes("/") ? ver.split("/")[0] : "";
+      return { name: r[iName], short: (r[iShort] ?? "").split(",").filter(Boolean), group, version: ver, namespaced: r[iNs] === "true", kind: r[iKind] ?? "", full: group ? `${r[iName]}.${group}` : r[iName] };
+    });
+}
+
+// Any resource as kubectl's wide table: { columns, rows: [{ cells, name, ns }] }.
+// `namespace` null means every namespace (a NAMESPACE column comes first).
+export async function table(context, res, namespace, { sort = null } = {}) {
+  const where = !res.namespaced ? [] : namespace ? ["-n", namespace] : ["--all-namespaces"];
+  const extra = sort ? [`--sort-by=${sort}`] : res.name === "events" ? ["--sort-by=.lastTimestamp"] : [];
+  const text = await kubectl(context, ["get", res.full, ...where, ...extra, API_TIMEOUT, "-o", "wide"]);
+  const { columns, rows } = parseTable(text);
+  const iName = columns.indexOf("NAME");
+  const iNs = columns.indexOf("NAMESPACE");
+  return {
+    columns,
+    rows: rows.map((cells) => ({ cells, name: cells[iName] ?? cells[0], ns: iNs >= 0 ? cells[iNs] : namespace })),
+  };
+}
+
+// ---- workloads ----
+
+// Deployments, Argo Rollouts and StatefulSets of a namespace (or all), each
+// with its HPA when one targets it. One `get` for all four kinds; a cluster
+// without the Rollout CRD is retried without it and remembered.
 const WORKLOAD_JQ = `[.items[] |
   if .kind == "HorizontalPodAutoscaler" then
-    {kind, name: .metadata.name, target: {kind: .spec.scaleTargetRef.kind, name: .spec.scaleTargetRef.name},
+    {kind, name: .metadata.name, ns: .metadata.namespace, target: {kind: .spec.scaleTargetRef.kind, name: .spec.scaleTargetRef.name},
      min: (.spec.minReplicas // 1), max: .spec.maxReplicas, current: (.status.currentReplicas // 0), desired: (.status.desiredReplicas // 0),
      metrics: [.spec.metrics[]? | {type,
        name: (.resource.name // .containerResource.name // .pods.metric.name // .external.metric.name // .object.metric.name),
@@ -78,11 +126,11 @@ const WORKLOAD_JQ = `[.items[] |
        value: (.resource.current.averageValue // .containerResource.current.averageValue // .pods.current.averageValue // .external.current.value // .external.current.averageValue // .object.current.value // .object.current.averageValue)}],
      conditions: [.status.conditions[]? | {type, status, reason, message}]}
   else
-    {kind, name: .metadata.name, created: .metadata.creationTimestamp,
+    {kind, name: .metadata.name, ns: .metadata.namespace, created: .metadata.creationTimestamp,
      desired: (.spec.replicas // 1), paused: (.spec.paused // false),
      replicas: (.status.replicas // 0), ready: (.status.readyReplicas // 0), available: (.status.availableReplicas // 0), updated: (.status.updatedReplicas // 0),
      phase: .status.phase, message: .status.message, abort: (.status.abort // false),
-     step: .status.currentStepIndex, steps: ((.spec.strategy.canary.steps // []) | length),
+     step: .status.currentStepIndex, steps: ((.spec.strategy.canary.steps // []) | length), pauses: ((.status.pauseConditions // []) | length),
      strategy: (if .spec.strategy.canary then "canary" elif .spec.strategy.blueGreen then "blueGreen" else (.spec.strategy.type // .spec.updateStrategy.type) end),
      selector: (.spec.selector.matchLabels // {}),
      generation: .metadata.generation, observed: .status.observedGeneration,
@@ -90,24 +138,26 @@ const WORKLOAD_JQ = `[.items[] |
   end]`;
 
 const noRollouts = new Set();
-const NO_ROLLOUTS = /resource type "rollouts"|rollouts\.argoproj\.io|No resources found/;
 
 export async function workloads(context, namespace) {
   const kinds = noRollouts.has(context) ? "deployments,statefulsets,horizontalpodautoscalers" : "deployments,statefulsets,rollouts.argoproj.io,horizontalpodautoscalers";
+  const where = namespace ? ["-n", namespace] : ["--all-namespaces"];
   let items;
   try {
-    items = await kubectl(context, ["get", kinds, "-n", namespace, API_TIMEOUT, "-o", "json"], { jq: WORKLOAD_JQ, tolerate: NO_ROLLOUTS });
+    items = await kubectl(context, ["get", kinds, ...where, API_TIMEOUT, "-o", "json"], { jq: WORKLOAD_JQ });
   } catch (e) {
     if (noRollouts.has(context) || !/rollouts/.test(e.message)) throw e;
     noRollouts.add(context);
     return workloads(context, namespace);
   }
-  const hpas = new Map(items.filter((i) => i.kind === "HorizontalPodAutoscaler").map((h) => [`${h.target.kind}/${h.target.name}`, h]));
+  const hpas = new Map(items.filter((i) => i.kind === "HorizontalPodAutoscaler").map((h) => [`${h.ns}/${h.target.kind}/${h.target.name}`, h]));
   return items
     .filter((i) => i.kind !== "HorizontalPodAutoscaler")
-    .map((w) => ({ ...w, hpa: hpas.get(`${w.kind}/${w.name}`) ?? null, key: `${w.kind}/${w.name}` }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .map((w) => ({ ...w, hpa: hpas.get(`${w.ns}/${w.kind}/${w.name}`) ?? null, key: `${w.ns}/${w.kind}/${w.name}` }))
+    .sort((a, b) => a.ns.localeCompare(b.ns) || a.name.localeCompare(b.name));
 }
+
+// ---- pods ----
 
 // Pods, slimmed to what the list shows. `namespace` null means every namespace.
 // `selector` (a workload's matchLabels) lists that workload's pods; otherwise
@@ -143,7 +193,7 @@ export async function pods(context, namespace, { selector = null } = {}) {
 
 const SETUP = new Set(["ContainerCreating", "PodInitializing"]);
 
-// kubectl's STATUS word for a pod, and whether it's a problem.
+// kubectl's STATUS word for a pod, and a tone for it.
 function describe(p) {
   const waiting = p.containers.map((c) => c.state).filter((s) => s?.kind === "waiting" && s.reason);
   const terminated = p.containers.map((c) => c.state).filter((s) => s?.kind === "terminated" && s.reason && s.reason !== "Completed");
@@ -172,14 +222,14 @@ function describe(p) {
   return { ...p, key: `${p.ns}/${p.name}`, status, tone, ready, restarts, detail: firstLine(detail) };
 }
 
-// The state of a workload, as one word and a tone: ok, rolling, degraded, paused, zero.
+// The state of a workload, as one word and a tone.
 export function health(w) {
   if (w.kind === "Rollout") {
     const phase = w.phase ?? "";
     if (w.abort) return ["aborted", "blocked"];
     if (phase === "Degraded") return ["degraded", "blocked"];
-    if (phase === "Paused") return ["paused", "working"];
-    if (phase === "Progressing") return [w.steps ? `step ${(w.step ?? 0)}/${w.steps}` : "progressing", "working"];
+    if (phase === "Paused") return [w.steps ? `paused ${w.step ?? 0}/${w.steps}` : "paused", "working"];
+    if (phase === "Progressing") return [w.steps ? `step ${w.step ?? 0}/${w.steps}` : "progressing", "working"];
     if (w.desired === 0) return ["scaled to 0", "dim"];
     if (phase === "Healthy") return ["healthy", "ansi2"];
     return [phase.toLowerCase() || "unknown", "dim"];
@@ -215,4 +265,49 @@ export function age(iso, now = Date.now()) {
   const h = Math.floor(m / 60);
   if (h < 48) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
+}
+
+// ---- changes ----
+
+// The resource name `kubectl` takes for a workload row's kind.
+export const RESOURCE = { Deployment: "deployments", StatefulSet: "statefulsets", Rollout: "rollouts.argoproj.io", HorizontalPodAutoscaler: "horizontalpodautoscalers", Pod: "pods" };
+
+export const del = (context, ns, res, name) => kubectl(context, ["delete", res, name, ...(ns ? ["-n", ns] : []), API_TIMEOUT], { timeout: 60000 });
+
+const patch = (context, ns, res, name, body, status = false) =>
+  kubectl(context, ["patch", res, name, ...(ns ? ["-n", ns] : []), "--type", "merge", "-p", JSON.stringify(body), ...(status ? ["--subresource=status"] : []), API_TIMEOUT], { timeout: 60000 });
+
+// `kubectl rollout restart` for a Deployment or StatefulSet; a Rollout gets
+// `spec.restartAt`, as `kubectl argo rollouts restart` does.
+export function restart(context, w) {
+  if (w.kind === "Rollout") return patch(context, w.ns, RESOURCE.Rollout, w.name, { spec: { restartAt: new Date().toISOString() } });
+  return kubectl(context, ["rollout", "restart", `${RESOURCE[w.kind]}/${w.name}`, "-n", w.ns, API_TIMEOUT], { timeout: 60000 });
+}
+
+let plugin = null;
+async function argoPlugin() {
+  if (plugin === null) plugin = (await exec("/bin/sh", ["-c", `${PATH}; command -v kubectl-argo-rollouts`], { timeout: 5000 }).catch(() => ({ code: 1 }))).code === 0;
+  return plugin;
+}
+
+// Promote, abort or retry an Argo Rollout. With the `kubectl argo rollouts`
+// plugin installed it runs that; otherwise the same patches the plugin makes
+// (its status patches need the status subresource, kubectl 1.24+):
+//   promote: unpause the spec, clear pause conditions; a rollout that isn't
+//            paused advances past its current step. `full` skips all steps.
+//   abort:   status.abort = true.   retry: status.abort = false.
+export async function rolloutAction(context, w, action, { full = false } = {}) {
+  const ns = w.ns;
+  if (await argoPlugin()) {
+    const args = action === "promote" ? ["promote", w.name, ...(full ? ["--full"] : [])] : [action, w.name];
+    return kubectl(context, ["argo", "rollouts", ...args, "-n", ns], { timeout: 60000 });
+  }
+  const ro = RESOURCE.Rollout;
+  if (action === "abort") return patch(context, ns, ro, w.name, { status: { abort: true } }, true);
+  if (action === "retry") return patch(context, ns, ro, w.name, { status: { abort: false } }, true);
+  if (full) return patch(context, ns, ro, w.name, { status: { promoteFull: true } }, true);
+  if (w.paused) await patch(context, ns, ro, w.name, { spec: { paused: false } });
+  if (w.pauses > 0) return patch(context, ns, ro, w.name, { status: { pauseConditions: null, controllerPause: false } }, true);
+  if (w.strategy === "canary" && w.step != null && w.step < w.steps) return patch(context, ns, ro, w.name, { status: { currentStepIndex: w.step + 1 } }, true);
+  return "nothing to promote";
 }
