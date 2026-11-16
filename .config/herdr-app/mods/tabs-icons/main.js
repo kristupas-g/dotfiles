@@ -87,7 +87,7 @@ export default class Tabs extends View {
         })
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         // The tab's number, as cmd-1..9 count them.
-        .when(i < 9, el => el.child(div().flex_none().text_size(10.5).text_color(c.active ? t.muted : t.dim).child(String(i + 1))))
+        .when(i < 9, el => el.child(div().flex_none().text_size(10.5).font_semibold().text_color(c.active ? t.accent : t.foreground).child(String(i + 1))))
         .when(Boolean(program?.icon), el => el.child(program.tint ? svg(program.icon).size(14).text_color(t.muted) : image(program.icon).size(14)))
         .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
         // A Thanos tab with a query running spins too (the mod sets shared "thanos.busy": { tab id: count }).
