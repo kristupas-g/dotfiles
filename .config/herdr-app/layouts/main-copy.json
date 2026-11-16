@@ -6,6 +6,7 @@
   },
   "type": "row",
   "theme": "misty-mountains",
+  "ui_font": "Iowan Old Style",
   "children": [
     {
       "id": "sidebar",
