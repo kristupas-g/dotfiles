@@ -73,3 +73,6 @@ kind-clusters/
 .config/herdr-app/mods/gitview/*.d.ts
 .config/herdr-app/mods/gitview/bin/
 .config/herdr-app/mods/gitview/config.json
+
+# Claude Code runtime state and OAuth credentials, never commit
+.config/anthropic/
