@@ -7,6 +7,8 @@
   "type": "row",
   "theme": "misty-mountains",
   "ui_font": "Iowan Old Style",
+  "font": "Iosevka Nerd Font Mono",
+  "font_size": 15,
   "children": [
     {
       "id": "sidebar",
@@ -195,7 +197,13 @@
       "resizable": false
     }
   ],
-  "background": "canvas",
+  "background": {
+    "gradient": [
+      "#22201c",
+      "#141312"
+    ],
+    "angle": 180
+  },
   "terminal_padding": [
     14,
     12
