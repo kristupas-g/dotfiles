@@ -291,6 +291,7 @@ export default class StatusBar extends View {
     const space = spaces().find((s) => s.active);
     const needs = agents().filter((a) => a.status === "blocked").length;
     return h_flex().size_full().px(10).gap(14).items_center().bg(t.chrome).border_t(1).border_color(t.border).text_size(11.8).text_color(t.muted)
+      .child(svg("mods/crest/leaf.svg").size(12).flex_none().text_color(t.accent))
       .child(this.vpnChip(t))
       .when(Boolean(space?.branch), (el) => el.child(h_flex().gap(6).items_center().child(svg("mods/workspace-chrome/branch.svg").size(13)).child(space.branch)))
       .when(needs > 0, (el) => el.child(div().text_color(t.blocked).child(`${needs} needs you`)))

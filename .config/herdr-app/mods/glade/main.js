@@ -7,11 +7,14 @@ import { View, div, image } from "gpui-kit";
 
 // x and y as a share of the block, size in px, period in ms.
 const FIREFLIES = [
-  { x: 0.12, y: 0.30, size: 3, period: 2600 },
-  { x: 0.27, y: 0.52, size: 2, period: 3300 },
-  { x: 0.41, y: 0.22, size: 2.5, period: 2100 },
-  { x: 0.58, y: 0.40, size: 3, period: 2900 },
-  { x: 0.84, y: 0.46, size: 2.5, period: 2400 },
+  { x: 0.10, y: 0.30, size: 3, period: 2600 },
+  { x: 0.22, y: 0.55, size: 2, period: 3300 },
+  { x: 0.38, y: 0.26, size: 2.5, period: 2100 },
+  { x: 0.50, y: 0.48, size: 2, period: 3900 },
+  { x: 0.61, y: 0.36, size: 3, period: 2900 },
+  { x: 0.72, y: 0.20, size: 2, period: 3700 },
+  { x: 0.86, y: 0.50, size: 2.5, period: 2400 },
+  { x: 0.94, y: 0.30, size: 2, period: 3100 },
 ];
 
 export default class Glade extends View {
