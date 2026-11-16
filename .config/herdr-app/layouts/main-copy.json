@@ -5,6 +5,7 @@
     "version": "0.1.15"
   },
   "type": "row",
+  "theme": "misty-mountains",
   "children": [
     {
       "id": "sidebar",
