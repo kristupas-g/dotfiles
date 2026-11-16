@@ -17,6 +17,9 @@ const EVERY = 60_000;
 // The team whose review requests fill "To review".
 const TEAM = "vinted/resilience";
 const REVIEW_DAYS = 7;
+// Authors whose PRs "To review" leaves out, as search qualifiers: renovate's
+// dependency bumps (a GitHub App, hence `app/`).
+const SKIP_AUTHORS = ["app/vinted-renovate"];
 const MERGED_DAYS = 3;
 const FIELDS = `number title url isDraft createdAt updatedAt mergedAt reviewDecision headRefName baseRefName isCrossRepository author { login } repository { nameWithOwner }
   latestReviews(first: 30) { nodes { author { login } state } }
@@ -28,7 +31,7 @@ const day = (ago) => new Date(Date.now() - ago * 86_400_000).toISOString().slice
 const search = (name, q) => `${name}: search(query: "${q}", type: ISSUE, first: 100) { nodes { ... on PullRequest { ${FIELDS} } } }`;
 const query = () => `query { viewer { login }
   ${search("mine", "is:pr is:open author:@me archived:false sort:updated-desc")}
-  ${search("review", `is:pr is:open draft:false archived:false -author:@me team-review-requested:${TEAM} created:>=${day(REVIEW_DAYS)} sort:created-desc`)}
+  ${search("review", `is:pr is:open draft:false archived:false -author:@me ${SKIP_AUTHORS.map((a) => `-author:${a}`).join(" ")} team-review-requested:${TEAM} created:>=${day(REVIEW_DAYS)} sort:created-desc`)}
   ${search("merged", `is:pr is:merged author:@me archived:false merged:>=${day(MERGED_DAYS)} sort:updated-desc`)} }
 ${FRAGMENT}`;
 
@@ -90,7 +93,8 @@ export class PullRequestList {
     this.loading = false;
     this.at = 0;
     this.stamp = shared(REFRESH) ?? null;
-    this.folded = new Set();
+    // Both sections start folded; their headers still carry the counts.
+    this.folded = new Set(["review", "merged"]);
     this.opening = new Set();
     this.approving = new Set();
     cx.timer.every(EVERY, (cx) => this.refresh(cx));
