@@ -8,6 +8,7 @@ const MOD_ICONS = {
   gitview: { icon: "my-icons/gitview.svg", tint: false },
   "gitview-diff": { icon: "my-icons/gitview.svg", tint: false },
   kube: { icon: "icons/kubectl.svg", tint: true },
+  thanos: { icon: "mods/thanos/icons/thanos.svg", tint: true },
 };
 
 function find(node, id) {

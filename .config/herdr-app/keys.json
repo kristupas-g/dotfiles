@@ -66,7 +66,8 @@
     "cmd-i": "new-chat.claude",
     "cmd-shift-i": "mod.open:new-chat",
     "cmd-alt-t": "mod.open:auto-title",
-    "cmd-k": "kube.open"
+    "cmd-k": "kube.open",
+    "cmd-shift-k": "thanos.open"
   },
   "mod:gitview": {
     "shift-p": "git-actions.push",
@@ -82,6 +83,11 @@
     "i": "git-actions.ignore",
     "shift-i": "git-actions.exclude",
     "c": "git-actions.commit"
+  },
+  "mod:thanos": {
+    "cmd-s": "thanos.link",
+    "cmd-shift-s": "thanos.shot",
+    "cmd-enter": "thanos.run"
   },
   "terminal": {
     "cmd-f": "terminal.search",

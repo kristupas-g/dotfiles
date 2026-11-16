@@ -1,0 +1,10 @@
+{
+  "// how": "Aliases for the Thanos tab. Type the alias, a space and its arguments in the query box, then Tab or Enter on the suggestion. $1, $2… are the arguments in order; an argument left out leaves its hole empty with the caret in it. `hint` is shown in the suggestion list. The real file is data/thanos/aliases.json (not tracked); this one only seeds it.",
+  "r5": { "expand": "sum(rate($1[5m]))", "hint": "sum of the 5m rate" },
+  "r5by": { "expand": "sum by ($2) (rate($1[5m]))", "hint": "5m rate summed by a label" },
+  "i5": { "expand": "sum(increase($1[5m]))", "hint": "5m increase" },
+  "p99": { "expand": "histogram_quantile(0.99, sum by (le) (rate($1_bucket[5m])))", "hint": "p99 of a histogram" },
+  "p95by": { "expand": "histogram_quantile(0.95, sum by (le, $2) (rate($1_bucket[5m])))", "hint": "p95 by a label" },
+  "err": { "expand": "sum(rate($1{code=~\"5..\"}[5m])) / sum(rate($1[5m]))", "hint": "5xx share of a counter" },
+  "up": { "expand": "count by (job) (up{job=~\"$1\"} == 1)", "hint": "targets up, by job" }
+}

@@ -80,6 +80,12 @@ const EXTRA = [
       const sp = spaces().find((s) => s.active);
       run("tab.new", { name: "k8s", ...(sp ? { space: sp.id } : {}), mod: "kube", props: {} });
     } },
+  // A new tab of the thanos mod in this space (the same as cmd-shift-k, `thanos.open`); the view names it "thanos · <query>".
+  { name: "thanos.open", args: {}, group: "Tab", title: "New Thanos tab (PromQL panels, graphs, tables)", words: "thanos prometheus promql metrics graph query",
+    act: () => {
+      const sp = spaces().find((s) => s.active);
+      run("tab.new", { name: "thanos", ...(sp ? { space: sp.id } : {}), mod: "thanos", props: {} });
+    } },
   // The spaces-pinned sidebar's pins (shared "spaces-pinned.ids"), for the shown space.
   { name: "spaces-pinned.pin", args: {}, group: "Space", title: "Pin or unpin this space", words: "pin unpin favourite top space",
     act: () => {

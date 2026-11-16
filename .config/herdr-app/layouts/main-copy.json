@@ -253,6 +253,17 @@
       },
       "edge": "bottom",
       "align": "center"
+    },
+    {
+      "id": "thanos-commands",
+      "content": {
+        "mod": "thanos",
+        "props": {
+          "role": "commands"
+        }
+      },
+      "edge": "bottom",
+      "align": "center"
     }
   ],
   "titlebar": "none",
