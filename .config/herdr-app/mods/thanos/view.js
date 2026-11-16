@@ -115,9 +115,22 @@ export class ThanosView {
       input: InputState.new({ placeholder: "PromQL · an alias and its arguments (r5 metric) · Tab completes", value: expr }),
       tableScroll: VirtualListScrollHandle.new(),
     };
+    panel.prev = expr;
     panel.input.on("change", (_e, cx) => {
-      panel.expr = panel.input.value();
+      const v = panel.input.value();
+      const prev = panel.prev;
+      panel.prev = v;
+      panel.expr = v;
       if (Date.now() < this.quietUntil) return;
+      // A typed " closes itself: `"` → `""` with the caret between; typed before a `"` it steps over it.
+      const caret = panel.input.selected_range().end;
+      if (v.length === prev.length + 1 && v[caret - 1] === '"' && v.slice(0, caret - 1) + v.slice(caret) === prev) {
+        const next = v[caret] === '"' ? prev : `${v.slice(0, caret)}"${v.slice(caret)}`;
+        panel.prev = next;
+        panel.expr = next;
+        panel.input.set_value(next);
+        panel.input.set_selected_range({ start: caret, end: caret });
+      }
       this.suggest(panel, cx);
     });
     panel.input.on("submit", (_e, cx) => this.submit(panel, cx));
@@ -195,6 +208,7 @@ export class ThanosView {
 
   setExpr(p, expr, cx) {
     p.expr = expr;
+    p.prev = expr;
     this.quietUntil = Date.now() + 100;
     p.input.set_value(expr);
     cx.notify();
@@ -442,6 +456,7 @@ export class ThanosView {
     }
     this.quietUntil = Date.now() + 100;
     this.skipSubmit = Date.now() + 200;
+    p.prev = next;
     st.set_value(next);
     st.set_selected_range({ start: pos, end: pos });
     p.expr = next;
@@ -815,12 +830,14 @@ export class ThanosView {
         .gap(8)
         .items_center()
         .rounded(5)
-        .bg(sel ? t.selected : t.popover)
+        .bg(sel ? t.hover : t.popover)
+        .border_l(2)
+        .border_color(sel ? t.accent : t.popover)
         .cursor_pointer()
-        .hover((s) => s.bg(sel ? t.selected : t.hover))
+        .hover((s) => s.bg(t.hover))
         .on_click((_e, cx) => this.accept(cx, i))
-        .child(div().w(44).flex_none().text_size(10).text_color(t.dim).child(it.kind))
-        .child(div().flex_none().max_w(460).truncate().font_family(mono).text_size(12).text_color(t.foreground).child(it.label))
+        .child(div().w(44).flex_none().text_size(10).text_color(sel ? t.accent : t.dim).child(it.kind))
+        .child(div().flex_none().max_w(460).truncate().font_family(mono).text_size(12).text_color(sel ? t.accent : t.foreground).child(it.label))
         .when(Boolean(it.hint), (el) => el.child(div().flex_1().min_w(0).truncate().font_family(mono).text_size(11).text_color(t.dim).child(it.hint)));
     };
     const kindHint = comp.ctx.kind === "label" ? `labels of ${comp.ctx.metric || "every series"}` : comp.ctx.kind === "value" ? `values of ${comp.ctx.label}` : "aliases, recent queries and metric names";
@@ -937,11 +954,13 @@ export class ThanosView {
         .gap(8)
         .items_center()
         .rounded(6)
-        .bg(sel ? t.selected : t.popover)
+        .bg(sel ? t.hover : t.popover)
+        .border_l(2)
+        .border_color(sel ? t.accent : t.popover)
         .cursor_pointer()
-        .hover((s) => s.bg(sel ? t.selected : t.hover))
+        .hover((s) => s.bg(t.hover))
         .on_click((_e, cx) => { this.pickAt = i; this.choose(cx); })
-        .child(div().w(40).flex_none().text_size(12.5).font_medium().text_color(t.foreground).child(it.label))
+        .child(div().w(40).flex_none().text_size(12.5).font_medium().text_color(sel ? t.accent : t.foreground).child(it.label))
         .child(div().flex_1().text_size(11).text_color(t.dim).child(it.hint))
         .when(it.id === this.range, (el) => el.child(div().text_size(11).text_color(t.dim).child("shown")));
     };
