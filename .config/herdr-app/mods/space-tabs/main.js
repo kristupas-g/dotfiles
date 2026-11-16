@@ -10,9 +10,15 @@
 // starter shell goes as soon as the first tab is there. gitview-tab builds its
 // file list in the background and then focuses it, which shows its tab: the
 // claude tab is selected once that has happened, not before.
+//
+// `space-tabs.nvim` (cmd-e in keys.json) shows the nvim tab of the shown space,
+// with the keyboard in nvim; when it was closed, it is opened again as at
+// seeding (nvim with the shell under it, before gitview). Pressed on the nvim
+// tab, it goes back to the tab shown before it (the loop below remembers the
+// last shown tab that isn't nvim, per space).
 
 import { View, div } from "gpui-kit";
-import { exec, focused, machines, notify, panes, run, setShared, shared, spaces } from "herdr";
+import { exec, focused, machines, nextCommand, notify, panes, run, setShared, shared, spaces } from "herdr";
 import { randomBytes } from "crypto";
 
 const SEEDED = "space-tabs.seeded";
@@ -146,6 +152,44 @@ async function seed(id, cx) {
   await settle(id, cx);
 }
 
+// The last shown tab that isn't nvim, per space: where cmd-e on nvim goes back to.
+const lastTab = new Map();
+
+// cmd-e: the shown space's nvim tab, opened again when it's gone; from the
+// nvim tab, the tab shown before it.
+async function showNvim(cx) {
+  const s = spaces().find((x) => x.active);
+  if (!s || s.machine) return;
+  const id = s.id;
+  const shown = s.tabs.find((t) => t.active);
+  if (shown && shown.name === "nvim") {
+    const back = lastTab.get(id);
+    if (back && s.tabs.some((t) => t.id === back)) run("tab.select", { id: back });
+    else run("tab.prev");
+    return;
+  }
+  const spec = TABS.find((t) => t.name === "nvim");
+  if (!tabNamed(id, "nvim")) {
+    await spec.open(s, cx);
+    if (!(await until(cx, () => tabNamed(id, "nvim")))) return notify({ title: "space-tabs", body: `nvim didn't open in ${s.name ?? id}`, level: "warning" });
+    // Where seeding put it: before gitview; else second (the claude tab is
+    // first, and auto-title may have renamed it), or first in an empty space.
+    const index = tabNamed(id, "gitview")?.index ?? Math.min(2, space(id)?.tabs.length ?? 1);
+    if (tabNamed(id, "nvim").index !== index) {
+      run("tab.move", { id: tabNamed(id, "nvim").id, index });
+      await until(cx, () => tabNamed(id, "nvim")?.index === index, 2000);
+    }
+  }
+  const tab = tabNamed(id, "nvim");
+  if (!tab) return;
+  run("tab.select", { id: tab.id });
+  if (tab.panes === 1) await nvimShell(id, cx);
+  // nvim is the pane that isn't the shell (the one made by the split).
+  const inTab = panes().filter((p) => p.tab === tab.id);
+  const nvim = inTab.find((p) => !p.program?.shell) ?? inTab[0];
+  if (nvim) run("pane.focus", { pane: nvim.pane });
+}
+
 // Runs step once for each local space not yet in shared[key].
 async function once(key, step, cx) {
   const done = new Set(shared(key) ?? []);
@@ -166,8 +210,18 @@ export default class SpaceTabs extends View {
   init(_props, cx) {
     cx.spawn(async (cx) => {
       for (;;) {
+        const c = await nextCommand();
+        if (c === "nvim") showNvim(cx).catch((e) => notify({ title: "space-tabs", body: String(e?.message ?? e), level: "error" }));
+      }
+    });
+    cx.spawn(async (cx) => {
+      for (;;) {
         await cx.sleep(POLL);
         if (machines().find((m) => m.name === null)?.layout !== "ready") continue;
+        for (const s of spaces()) {
+          const t = s.tabs.find((t) => t.active);
+          if (t && t.name !== "nvim") lastTab.set(s.id, t.id);
+        }
         const shown = spaces().find((s) => s.active)?.id;
         const seeded = await once(SEEDED, seed, cx);
         const shelled = await once(NVIM_SHELL, nvimShell, cx);
