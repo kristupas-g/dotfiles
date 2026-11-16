@@ -133,6 +133,8 @@ export class ThanosView {
       panel.prev = v;
       panel.expr = v;
       if (Date.now() < this.quietUntil) return;
+      // A typed change can only come from the focused box: count it as typing even if no focus event came.
+      if (this.typing !== panel.id) { this.typing = panel.id; this.focusAt = this.panels.indexOf(panel); }
       // Brackets and quotes close themselves: `(` → `()` with the caret between,
       // a typed closer that's already next steps over it, and Backspace on an
       // opener takes its empty pair's closer with it.
@@ -687,7 +689,7 @@ export class ThanosView {
     else if (k === "x" && p) this.remove(p, cx);
     else if (k === "j" || k === "down") this.focusPanel(this.focusAt + 1, cx);
     else if (k === "k" || k === "up") this.focusPanel(this.focusAt - 1, cx);
-    else if (k === "enter" && p) this.edit(p, cx);
+    else if (k === "enter" && p) { if (p.expr.trim()) this.run(p, cx); else this.edit(p, cx); }
     else if (k === "r") this.runAll(cx);
     else if (k === "t" && p) this.toggleMode(p, cx);
     else if (k === "f" && p) this.formatPanel(p, cx);
@@ -935,6 +937,7 @@ export class ThanosView {
       .flex()
       .items_center()
       .on_size_change((sz) => { p.boxW = sz.width; })
+      .on_mouse_down("left", (_e, cx) => { this.typing = p.id; this.focusAt = this.panels.indexOf(p); cx.notify(); })
       .on_key_down((e, cx) => this.key(e, cx))
       .child(Input.new(p.input).flex_1().h_full().text_size(12.5).font_family(mono).text_color(fits && expr ? t.background + "00" : t.foreground))
       .when(fits && Boolean(expr), (el) => {
@@ -1076,7 +1079,7 @@ export class ThanosView {
     } else if (this.typing) {
       hints = h_flex().gap(10).items_center().children([key("Tab", "complete"), key("↑↓", "pick"), key("↵", "run"), key("Esc", "leave the box"), key("alias args", "r5 metric label")]);
     } else {
-      hints = h_flex().gap(10).items_center().children([key("n", "new"), key("d", "duplicate"), key("x", "remove"), key("j/k", "panel"), key("↵", "edit"), key("r", "run all"), key("t", "table"), key("f", "format"), key("R", "range"), key("C", "range→grafana"), key("o", "overlay"), key("-/=", "height"), key("⌘S", "link"), key("⇧⌘S", "shot")]);
+      hints = h_flex().gap(10).items_center().children([key("n", "new"), key("d", "duplicate"), key("x", "remove"), key("j/k", "panel"), key("↵", "run"), key("r", "run all"), key("t", "table"), key("f", "format"), key("R", "range"), key("C", "range→grafana"), key("o", "overlay"), key("-/=", "height"), key("⌘S", "link"), key("⇧⌘S", "shot")]);
     }
     const n = this.panels.length;
     return h_flex()
