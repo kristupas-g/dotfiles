@@ -1,7 +1,8 @@
 // One pull request as a tab: its diff with review threads under the lines they
 // sit on, the conversation (description, reviews, comments, threads), and
-// Merge / Close buttons that ask once before acting. Opened by the sidebar list
-// with props { view: { repo, number } }.
+// Merge / Close buttons that ask once before acting, and a button that leaves
+// the "merge this please" comment for the repos where a bot merges on that.
+// Opened by the sidebar list with props { view: { repo, number } }.
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle, Scrollbar, TextView, v_virtual_list } from "gpui-base";
@@ -10,6 +11,8 @@ import { gh, ghJson, openUrl, duration, kind, check, buildUrl, firstLine, openSp
 import { parseDiff, threads, buildRows } from "./diff.js";
 
 const MAX_DIFF = 2_000_000;
+// Some repos merge through a bot that watches for this comment, not the button.
+const MERGE_COMMENT = "merge this please";
 const REVIEW = { APPROVED: ["approved", "ansi2"], CHANGES_REQUESTED: ["changes requested", "blocked"], COMMENTED: ["commented", "dim"], DISMISSED: ["dismissed", "dim"], PENDING: ["pending review", "dim"] };
 const MERGE_STATE = { CLEAN: ["ready to merge", "ansi2"], UNSTABLE: ["checks failing", "blocked"], BLOCKED: ["blocked", "blocked"], BEHIND: ["behind base", "working"], DIRTY: ["conflicts", "blocked"], DRAFT: ["draft", "dim"], HAS_HOOKS: ["ready", "ansi2"], UNKNOWN: ["checking…", "dim"] };
 
@@ -108,12 +111,13 @@ export class PullRequestView {
     return this.pr?.ci === "failure" ? `CI failed on ${n}. Merge it ${method} anyway?` : `Merge ${n} ${method}?`;
   }
 
-  // Merge or close, after the confirm row said yes. A base branch with a merge
-  // queue gets the enqueue mutation (GitHub's "Add to merge queue"; gh's own
-  // route is auto-merge, which such branches may refuse). Elsewhere `--auto`
-  // makes gh merge a green PR at once and enable auto-merge on a blocked one
-  // instead of failing. The sidebar list re-reads GitHub through the shared
-  // stamp.
+  // Merge, close or comment, after the confirm row said yes. A base branch
+  // with a merge queue gets the enqueue mutation (GitHub's "Add to merge
+  // queue"; gh's own route is auto-merge, which such branches may refuse).
+  // Elsewhere `--auto` makes gh merge a green PR at once and enable auto-merge
+  // on a blocked one instead of failing. "comment" posts MERGE_COMMENT for the
+  // repos whose bot merges on it. The sidebar list re-reads GitHub through
+  // the shared stamp.
   act(what, cx) {
     this.confirm = null;
     this.busy = what;
@@ -125,6 +129,7 @@ export class PullRequestView {
       try {
         if (what === "merge" && this.queue.enabled && this.pr?.id) await gh(["api", "graphql", "-F", `id=${this.pr.id}`, "-f", "query=mutation($id: ID!) { enqueuePullRequest(input: {pullRequestId: $id}) { mergeQueueEntry { position } } }"], { allLines: true });
         else if (what === "merge") await gh(["pr", "merge", n, "--repo", this.repo, `--${this.mergeMethod()}`, "--auto"], { timeout: 120000, allLines: true });
+        else if (what === "comment") await gh(["pr", "comment", n, "--repo", this.repo, "--body", MERGE_COMMENT]);
         else await gh(["pr", "close", n, "--repo", this.repo]);
       } catch (e) {
         failed = true;
@@ -137,6 +142,7 @@ export class PullRequestView {
       if (!failed) {
         const done =
           what === "close" ? "closed"
+          : what === "comment" ? `got the comment "${MERGE_COMMENT}"`
           : this.pr?.state === "MERGED" ? "merged"
           : this.queue.inQueue ? "added to the merge queue"
           : this.pr?.autoMergeRequest ? "will merge when GitHub allows it"
@@ -191,8 +197,8 @@ export class PullRequestView {
       ? h_flex()
           .gap(6)
           .items_center()
-          .child(div().text_size(12).text_color(t.foreground).child(this.confirm === "merge" ? this.mergeQuestion() : `Close #${this.number} without merging?`))
-          .child(this.button(t, "pr-yes", "Yes", (cx) => this.act(this.confirm, cx), { tone: this.confirm === "merge" ? "ansi2" : "blocked" }))
+          .child(div().text_size(12).text_color(t.foreground).child(this.confirm === "merge" ? this.mergeQuestion() : this.confirm === "comment" ? `Comment "${MERGE_COMMENT}" on #${this.number}?` : `Close #${this.number} without merging?`))
+          .child(this.button(t, "pr-yes", "Yes", (cx) => this.act(this.confirm, cx), { tone: this.confirm === "close" ? "blocked" : "ansi2" }))
           .child(this.button(t, "pr-no", "No", (cx) => { this.confirm = null; cx.notify(); }))
       : h_flex()
           .gap(6)
@@ -216,6 +222,7 @@ export class PullRequestView {
           .child(this.button(t, "pr-space", this.busy === "space" ? "Opening…" : "Space", (cx) => this.openSpace(cx), { disabled: !pr || Boolean(this.busy) }))
           .when(Boolean(pr), (el) => el.child(this.circleButton(t)))
           .child(this.button(t, "pr-close", this.busy === "close" ? "Closing…" : "Close", (cx) => { this.confirm = "close"; cx.notify(); }, { tone: "blocked", disabled: !open || Boolean(this.busy) }))
+          .child(this.button(t, "pr-comment", this.busy === "comment" ? "Commenting…" : `Comment "${MERGE_COMMENT}"`, (cx) => { this.confirm = "comment"; cx.notify(); }, { disabled: !open || Boolean(this.busy) }))
           .child(this.button(t, "pr-merge", this.busy === "merge" ? "Merging…" : pending ? "Queued" : "Merge", (cx) => { this.confirm = "merge"; cx.notify(); }, { tone: "ansi2", disabled: !open || pending || Boolean(this.busy) }));
 
     return v_flex()
