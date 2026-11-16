@@ -16,7 +16,7 @@
           "id": "brand",
           "type": "block",
           "content": {
-            "mod": "blank"
+            "mod": "crest"
           },
           "size": {
             "px": 36
@@ -118,13 +118,13 @@
                   "background": "background",
                   "border": {
                     "width": 1,
-                    "color": "border"
+                    "color": "input"
                   },
                   "focus": {
                     "width": 1,
                     "color": "accent"
                   },
-                  "radius": 4,
+                  "radius": 3,
                   "gap": 2,
                   "lone": true
                 }
