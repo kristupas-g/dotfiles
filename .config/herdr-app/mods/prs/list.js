@@ -1,7 +1,7 @@
 // The sidebar list: your open pull requests grouped by repo, then two foldable
 // sections: "To review" (open, non-draft PRs of the last REVIEW_DAYS days that
 // ask TEAM for a review, each with a quick Approve button) and "Merged" (your
-// PRs merged into main or master in the last MERGED_DAYS days, whose circle is
+// PRs merged into main or master in the last MERGED_HOURS hours, whose circle is
 // the merge commit's CI on that branch, to follow a release). The circle on a
 // row is a commit's CI state and opens its Jenkins build; the row opens the
 // PR as a tab (view.js). Reads GitHub once a minute, on the refresh button,
@@ -20,7 +20,7 @@ const REVIEW_DAYS = 7;
 // Authors whose PRs "To review" leaves out, as search qualifiers: renovate's
 // dependency bumps (a GitHub App, hence `app/`).
 const SKIP_AUTHORS = ["app/vinted-renovate"];
-const MERGED_DAYS = 3;
+const MERGED_HOURS = 12;
 const FIELDS = `number title url isDraft createdAt updatedAt mergedAt reviewDecision headRefName baseRefName isCrossRepository author { login } repository { nameWithOwner }
   latestReviews(first: 30) { nodes { author { login } state } }
   commits(last: 1) { nodes { commit { ...Rollup } } }
@@ -28,11 +28,13 @@ const FIELDS = `number title url isDraft createdAt updatedAt mergedAt reviewDeci
 const FRAGMENT = `fragment Rollup on Commit { statusCheckRollup { state contexts(first: 50) { nodes {
   __typename ... on StatusContext { context state targetUrl } ... on CheckRun { name status conclusion detailsUrl } } } } }`;
 const day = (ago) => new Date(Date.now() - ago * 86_400_000).toISOString().slice(0, 10);
+// A full timestamp: `merged:>=` takes one, so the window can be in hours.
+const hour = (ago) => new Date(Date.now() - ago * 3_600_000).toISOString().replace(/\.\d+Z$/, "Z");
 const search = (name, q) => `${name}: search(query: "${q}", type: ISSUE, first: 100) { nodes { ... on PullRequest { ${FIELDS} } } }`;
 const query = () => `query { viewer { login }
   ${search("mine", "is:pr is:open author:@me archived:false sort:updated-desc")}
   ${search("review", `is:pr is:open draft:false archived:false -author:@me ${SKIP_AUTHORS.map((a) => `-author:${a}`).join(" ")} team-review-requested:${TEAM} created:>=${day(REVIEW_DAYS)} sort:created-desc`)}
-  ${search("merged", `is:pr is:merged author:@me archived:false merged:>=${day(MERGED_DAYS)} sort:updated-desc`)} }
+  ${search("merged", `is:pr is:merged author:@me archived:false merged:>=${hour(MERGED_HOURS)} sort:updated-desc`)} }
 ${FRAGMENT}`;
 
 function find(node, id) {
