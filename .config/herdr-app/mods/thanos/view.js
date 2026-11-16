@@ -28,6 +28,9 @@ const PICK_ROW = 28;
 export const TAB = "thanos";
 const ICON = "mods/thanos/icons/";
 const BOX_PAD = 8;
+// What closes itself in the query box, and the closers that step over a closer already there.
+const PAIRS = { "(": ")", "[": "]", "{": "}", '"': '"' };
+const CLOSERS = new Set([")", "]", "}", '"']);
 // Calibrated against the Input's own text inset and glyph width at 12.5 px (JetBrains Mono).
 const INPUT_PAD = 0;
 const CHAR_W = 7.5;
@@ -131,10 +134,21 @@ export class ThanosView {
       panel.prev = v;
       panel.expr = v;
       if (Date.now() < this.quietUntil) return;
-      // A typed " closes itself: `"` → `""` with the caret between; typed before a `"` it steps over it.
+      // Brackets and quotes close themselves: `(` → `()` with the caret between,
+      // a typed closer that's already next steps over it, and Backspace on an
+      // opener takes its empty pair's closer with it.
       const caret = panel.input.selected_range().end;
-      if (v.length === prev.length + 1 && v[caret - 1] === '"' && v.slice(0, caret - 1) + v.slice(caret) === prev) {
-        const next = v[caret] === '"' ? prev : `${v.slice(0, caret)}"${v.slice(caret)}`;
+      const typed = v.length === prev.length + 1 && v.slice(0, caret - 1) + v.slice(caret) === prev ? v[caret - 1] : null;
+      const removed = v.length === prev.length - 1 && prev.slice(0, caret) + prev.slice(caret + 1) === v ? prev[caret] : null;
+      let next = null;
+      if (typed !== null) {
+        const closer = PAIRS[typed];
+        if (closer && !(typed === '"' && v[caret] === '"')) next = `${v.slice(0, caret)}${closer}${v.slice(caret)}`;
+        else if (CLOSERS.has(typed) && v[caret] === typed) next = prev;
+      } else if (removed !== null && PAIRS[removed] && v[caret] === PAIRS[removed]) {
+        next = v.slice(0, caret) + v.slice(caret + 1);
+      }
+      if (next !== null) {
         panel.prev = next;
         panel.expr = next;
         panel.input.set_value(next);
