@@ -1,8 +1,16 @@
 // status-bar: the bottom bar, from Herdr's workspace-status without the machine
-// name and the agent count: the FortiClient VPN state (green with the profile
-// when connected, red "VPN off" when not; a click toggles it), the branch,
-// "N needs you" when an agent is blocked, and the palette hint (palette-plus,
-// as keys.json binds it).
+// name, the agent count and the palette hint: the FortiClient VPN state (green
+// with the profile when connected, red "VPN off" when not; a click toggles it),
+// the branch, "N needs you" when an agent is blocked, and Spotify on the right.
+//
+// Spotify: the logo, the album art, "track — artist", previous, play or
+// pause, next, shuffle (green when on) and a volume slider (drag it, or scroll
+// over it), all through spotify.applescript, the desktop app's own scripting,
+// polled every SP_POLL ms and right after an action. When Spotify isn't
+// running the cluster is one button, "Turn on the grooves", which opens it in
+// the background and presses play. (No liked-songs heart: the app doesn't
+// script it, its window is closed to Accessibility, and the Web API needs an
+// app registration of your own.)
 //
 // FortiClient has two kinds of tunnel. SSL profiles run in its network
 // extension, the "VPN" service of `scutil --nc list`, whose state is `scutil
@@ -15,9 +23,10 @@
 // vpn.applescript, which needs Accessibility permission for Herdr. FortiClient
 // hides its window once connected (its "minimize on connect").
 
-import { View, div, svg } from "gpui-kit";
-import { h_flex } from "gpui-base";
-import { spaces, agents, theme, run, window, keys, exec, notify, appHome, home, nextCommand } from "herdr";
+import { View, div, svg, image } from "gpui-kit";
+import { h_flex, Slider, SliderState, SliderTrack, SliderIndicator, SliderThumb } from "gpui-base";
+import { spaces, agents, theme, exec, notify, appHome, home, nextCommand, checking } from "herdr";
+import { createHash } from "crypto";
 
 const firstLine = (t) => (t ?? "").split("\n").find((l) => l.trim()) ?? "";
 
@@ -25,6 +34,9 @@ const VPN_SERVICE = "VPN";
 const VPN_PROFILE = "vinted-vpn v2";
 const VPN_PREFS = "com.fortinet.forticlient.macos.vpn";
 const POLL = 5000;
+const SP_POLL = 3000;
+const SPOTIFY_GREEN = "#1db954";
+const spotify = (...args) => exec("/usr/bin/osascript", [`${appHome()}/mods/status-bar/spotify.applescript`, ...args], { timeout: 10000 });
 // One line per VPN action, for when a click seems to do nothing.
 const trace = (m) => exec("/bin/sh", ["-c", 'printf "%s %s\\n" "$(date +%T)" "$1" >> "$2"', "sh", String(m), `${appHome()}/data/status-bar.log`]).catch(() => {});
 
@@ -32,17 +44,154 @@ export default class StatusBar extends View {
   init(_props, cx) {
     this.vpn = { state: "unknown", name: null, how: null };
     this.connecting = false;
+    this.sp = { running: false, state: "stopped", name: "", artist: "", art: "", artPath: null, volume: 0, shuffle: false, id: "" };
+    this.starting = false; // "Turn on the grooves" pressed
+    this.sliding = false; // the volume thumb is being dragged: polls don't move it
+    this.volume = SliderState.new({ min: 0, max: 100, step: 1, value: 0 });
+    this.volume.on("change", () => { this.sliding = true; });
+    this.volume.on("release", (v, cx) => { this.sliding = false; this.setVolume(Number(v), cx); });
+    if (checking()) return;
     cx.timer.every(POLL, (cx) => this.poll(cx));
     this.poll(cx);
-    // `status-bar.vpn` (toggle), `status-bar.connect`, `status-bar.disconnect`: from a key or `herdr-app do`.
+    cx.timer.every(SP_POLL, (cx) => this.pollSpotify(cx));
+    this.pollSpotify(cx);
+    // `status-bar.vpn` (toggle), `status-bar.connect`, `status-bar.disconnect`, and
+    // `status-bar.playpause` / `.next` / `.previous`: from a key or `herdr-app do`.
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
         if (c === "vpn") this.toggle(cx);
         else if (c === "connect" && this.vpn.state !== "Connected") this.toggle(cx);
         else if (c === "disconnect" && this.vpn.state === "Connected") this.toggle(cx);
+        else if (c === "playpause" || c === "next" || c === "previous") this.act(c, cx);
       }
     });
+  }
+
+  // The player as spotify.applescript reports it. The art is fetched when the
+  // picture changes; the slider follows the volume unless it's being dragged.
+  pollSpotify(cx) {
+    if (this.pollingSpotify) return;
+    this.pollingSpotify = true;
+    cx.spawn(async (cx) => {
+      try {
+        const r = await spotify("state").catch(() => null);
+        const lines = r?.code === 0 ? r.stdout.replace(/\n$/, "").split("\n") : ["off"];
+        const was = this.sp;
+        if (lines[0] !== "on") {
+          this.sp = { ...was, running: false, state: "stopped", name: "", artist: "", art: "", artPath: null, id: "" };
+        } else {
+          const [, state, name, artist, art, volume, shuffle, id] = lines;
+          this.sp = { ...was, running: true, state, name, artist, art, volume: Number(volume) || 0, shuffle: shuffle === "true", id };
+          this.starting = false;
+          if (!this.sliding && this.volume.value() !== this.sp.volume) this.volume.set_value(this.sp.volume);
+          if (art !== was.art) this.fetchArt(art, cx);
+        }
+        cx.notify();
+      } finally { this.pollingSpotify = false; }
+    });
+  }
+
+  // The album art, downloaded once per picture into data/status-bar/art/ (only
+  // the current one is kept), then shown through image().
+  fetchArt(url, cx) {
+    this.sp.artPath = null;
+    if (!url) return;
+    cx.spawn(async (cx) => {
+      const dir = `${appHome()}/data/status-bar/art`;
+      const name = `${createHash("sha1").update(url).digest("hex").slice(0, 16)}.jpg`;
+      const r = await exec("/bin/sh", ["-c", 'mkdir -p "$1" && find "$1" -type f ! -name "$2" -delete; [ -s "$1/$2" ] || /usr/bin/curl -sfL -o "$1/$2" "$3"', "sh", dir, name, url], { timeout: 15000 }).catch(() => null);
+      if (r?.code === 0 && this.sp.art === url) { this.sp.artPath = `data/status-bar/art/${name}`; cx.notify(); }
+    });
+  }
+
+  // playpause, next, previous, shuffle <bool>, volume <n>: then a fresh poll.
+  act(cmd, cx, ...args) {
+    if (cmd === "playpause") this.sp.state = this.sp.state === "playing" ? "paused" : "playing"; // shown at once, the poll confirms
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const r = await spotify(cmd, ...args).catch((e) => ({ code: -1, stderr: String(e?.message ?? e) }));
+      if (r.code !== 0) notify({ title: "Spotify", body: firstLine(r.stderr) || `${cmd} didn't work`, level: "error" });
+      this.pollSpotify(cx);
+    });
+  }
+
+  setVolume(v, cx) {
+    const vol = Math.max(0, Math.min(100, Math.round(v)));
+    this.sp.volume = vol;
+    this.act("volume", cx, String(vol));
+  }
+
+  // The wheel over the slider: 5 a notch, applied once the notches pause.
+  wheelVolume(e, cx) {
+    const dy = e.delta_lines?.y ?? (e.delta?.y ?? 0) / 20;
+    if (!dy) return;
+    const vol = Math.max(0, Math.min(100, Math.round(this.sp.volume + (dy > 0 ? 5 : -5))));
+    if (vol === this.sp.volume) return;
+    this.sp.volume = vol;
+    this.volume.set_value(vol);
+    cx.notify();
+    if (this.wheeling) return;
+    this.wheeling = true;
+    cx.spawn(async (cx) => {
+      await cx.sleep(250);
+      this.wheeling = false;
+      this.act("volume", cx, String(this.sp.volume));
+    });
+  }
+
+  // "Turn on the grooves": open Spotify in the background and press play once it answers.
+  grooves(cx) {
+    if (this.starting) return;
+    this.starting = true;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        const o = await exec("/usr/bin/open", ["-g", "-a", "Spotify"], { timeout: 10000 });
+        if (o.code !== 0) throw new Error(firstLine(o.stderr) || "couldn't open Spotify");
+        let played = false;
+        for (let i = 0; i < 30 && !played; i++) {
+          await cx.sleep(1000);
+          played = (await spotify("play").catch(() => ({ code: 1 }))).code === 0;
+        }
+        if (!played) notify({ title: "Spotify", body: "Spotify is taking a while to start; press play there", level: "warning" });
+      } catch (e) {
+        notify({ title: "Spotify", body: String(e?.message ?? e), level: "error" });
+      } finally {
+        this.starting = false;
+        this.pollSpotify(cx);
+      }
+    });
+  }
+
+  spotifyBar(t) {
+    const s = this.sp;
+    const button = (id, icon, tip, onClick, color) => div().id(id).size(18).flex().items_center().justify_center().rounded(4).cursor_pointer()
+      .text_color(color ?? t.muted).hover((h) => h.bg(t.hover).text_color(t.foreground)).tooltip(tip)
+      .on_click((_e, cx) => onClick(cx)).child(svg(`mods/status-bar/${icon}.svg`).size(13));
+    if (!s.running) {
+      return h_flex().id("grooves").h(20).px(8).gap(6).items_center().rounded(5).cursor_pointer().hover((h) => h.bg(t.hover))
+        .tooltip("Open Spotify and play").on_click((_e, cx) => this.grooves(cx))
+        .child(this.starting ? svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900) : svg("mods/status-bar/spotify.svg").size(13).text_color(SPOTIFY_GREEN))
+        .child(div().text_color(t.muted).child(this.starting ? "Starting the grooves…" : "Turn on the grooves"));
+    }
+    const playing = s.state === "playing";
+    const title = s.name ? `${s.name} — ${s.artist}` : "Nothing playing";
+    return h_flex().gap(3).items_center()
+      .child(svg("mods/status-bar/spotify.svg").size(13).text_color(SPOTIFY_GREEN).mr(3))
+      .when(Boolean(s.artPath), (el) => el.child(image(s.artPath).size(16).rounded(3).mr(3)))
+      .child(div().id("sp-title").max_w(280).truncate().mr(4).text_color(playing ? t.foreground : t.muted).tooltip(title).child(title))
+      .child(button("sp-prev", "prev", "Previous", (cx) => this.act("previous", cx)))
+      .child(button("sp-play", playing ? "pause" : "play", playing ? "Pause" : "Play", (cx) => this.act("playpause", cx), t.foreground))
+      .child(button("sp-next", "next", "Next", (cx) => this.act("next", cx)))
+      .child(button("sp-shuffle", "shuffle", s.shuffle ? "Shuffle on · click to turn off" : "Shuffle off · click to turn on", (cx) => { this.sp.shuffle = !s.shuffle; this.act("shuffle", cx, String(!s.shuffle)); }, s.shuffle ? SPOTIFY_GREEN : t.dim))
+      .child(h_flex().id("sp-volume").ml(4).gap(4).items_center().tooltip(`Volume ${s.volume}`).on_scroll_wheel((e, cx) => this.wheelVolume(e, cx))
+        .child(svg("mods/status-bar/volume.svg").size(13).text_color(t.dim))
+        .child(Slider.new(this.volume).child(
+          SliderTrack.new(this.volume).flex().items_center().h(20).w(64).child(
+            SliderIndicator.new(this.volume).relative().w_full().h(4).rounded(2).bg(t.input)
+              .range_style((fill) => fill.rounded(2).bg(t.muted))
+              .child(SliderThumb.new(this.volume).size(10).rounded(5).bg(t.foreground).ml(-5).mt(-3))))));
   }
 
   // Up when the SSL extension says Connected, or FortiClient's IPsec tunnel
@@ -117,16 +266,6 @@ export default class StatusBar extends View {
     });
   }
 
-  // The palette key as actually bound.
-  hint() {
-    const mac = window()?.platform === "macos";
-    const mod = { cmd: mac ? "⌘" : "Ctrl+", ctrl: mac ? "⌃" : "Ctrl+", shift: mac ? "⇧" : "Shift+", alt: mac ? "⌥" : "Alt+", option: mac ? "⌥" : "Alt+" };
-    const b = keys().find((k) => k.section === "global" && (k.action === "mod.open:palette-plus" || k.action === "app.palette"));
-    const parts = b && b.keys.endsWith("--") ? [...b.keys.slice(0, -2).split("-"), "-"] : b?.keys.split("-");
-    const key = parts && parts.map((p) => mod[p.toLowerCase()] ?? p.toUpperCase()).join("");
-    return { text: key ? `${key}  commands` : "commands", action: b?.action ?? "app.palette" };
-  }
-
   vpnChip(t) {
     const on = this.vpn.state === "Connected";
     const busy = this.connecting || this.vpn.state === "Connecting";
@@ -151,13 +290,11 @@ export default class StatusBar extends View {
     const t = theme();
     const space = spaces().find((s) => s.active);
     const needs = agents().filter((a) => a.status === "blocked").length;
-    const hint = this.hint();
-    const open = () => (hint.action.startsWith("mod.open:") ? run("mod.open", { name: hint.action.slice(9) }) : run(hint.action));
     return h_flex().size_full().px(10).gap(14).items_center().bg(t.chrome).border_t(1).border_color(t.border).text_size(11.8).text_color(t.muted)
       .child(this.vpnChip(t))
       .when(Boolean(space?.branch), (el) => el.child(h_flex().gap(6).items_center().child(svg("mods/workspace-chrome/branch.svg").size(13)).child(space.branch)))
       .when(needs > 0, (el) => el.child(div().text_color(t.blocked).child(`${needs} needs you`)))
       .child(div().flex_1())
-      .child(div().id("palette").text_color(t.dim).cursor_pointer().on_click(open).child(hint.text));
+      .child(this.spotifyBar(t));
   }
 }
