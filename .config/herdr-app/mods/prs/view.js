@@ -1,11 +1,14 @@
 // One pull request as a tab: its diff with review threads under the lines they
-// sit on, the conversation (description, reviews, comments, threads), and
-// Merge / Close buttons that ask once before acting, and a button that leaves
-// the "merge this please" comment for the repos where a bot merges on that.
-// Opened by the sidebar list with props { view: { repo, number } }.
+// sit on, the conversation (description, reviews, comments, threads), Merge /
+// Close buttons that ask once before acting, a button that leaves the "merge
+// this please" comment for the repos where a bot merges on that, an Approve
+// button that doesn't ask, and a comment box: on the PR (under Comments), as a
+// reply to a thread (its Reply button), or on a diff line (click the line).
+// A merged PR shows the merge commit's CI on the base branch, to follow the
+// release. Opened by the sidebar list with props { view: { repo, number } }.
 
 import { div, svg } from "gpui-kit";
-import { v_flex, h_flex, ScrollHandle, Scrollbar, TextView, v_virtual_list } from "gpui-base";
+import { v_flex, h_flex, ScrollHandle, Scrollbar, TextView, TextareaState, Textarea, v_virtual_list } from "gpui-base";
 import { notify, props, run, setShared, settings, theme } from "herdr";
 import { gh, ghJson, openUrl, duration, kind, check, buildUrl, firstLine, openSpaceFor, REFRESH } from "./gh.js";
 import { parseDiff, threads, buildRows } from "./diff.js";
@@ -13,6 +16,10 @@ import { parseDiff, threads, buildRows } from "./diff.js";
 const MAX_DIFF = 2_000_000;
 // Some repos merge through a bot that watches for this comment, not the button.
 const MERGE_COMMENT = "merge this please";
+const ROLLUP = "statusCheckRollup { state contexts(first: 50) { nodes { __typename ... on StatusContext { context state targetUrl } ... on CheckRun { name status conclusion detailsUrl } } } }";
+// Who is logged in to gh, read once for every tab.
+let ME = null;
+const me = () => (ME ??= gh(["api", "user", "--jq", ".login"]).then((s) => s.trim()).catch(() => null));
 const REVIEW = { APPROVED: ["approved", "ansi2"], CHANGES_REQUESTED: ["changes requested", "blocked"], COMMENTED: ["commented", "dim"], DISMISSED: ["dismissed", "dim"], PENDING: ["pending review", "dim"] };
 const MERGE_STATE = { CLEAN: ["ready to merge", "ansi2"], UNSTABLE: ["checks failing", "blocked"], BLOCKED: ["blocked", "blocked"], BEHIND: ["behind base", "working"], DIRTY: ["conflicts", "blocked"], DRAFT: ["draft", "dim"], HAS_HOOKS: ["ready", "ansi2"], UNKNOWN: ["checking…", "dim"] };
 
@@ -36,6 +43,15 @@ export class PullRequestView {
     this.queue = { enabled: false, inQueue: false };
     this.actError = null;
     this.highlight = null;
+    this.me = null;
+    this.release = null;
+    // The comment box's target: null (the PR), { reply, who, where } (a
+    // thread) or { key, path, line, side } (a diff line).
+    this.compose = null;
+    this.box = TextareaState.new({ placeholder: "Comment… ↩ posts, ⇧↩ a new line", rows: 2 });
+    this.box.set_auto_grow(2, 8);
+    this.box.on("submit", (_e, cx) => this.post(cx));
+    this.handle = cx.focus_handle();
     this.scroll = ScrollHandle.new();
     cx.timer.every(120_000, (cx) => this.refresh(cx));
     this.refresh(cx);
@@ -55,12 +71,13 @@ export class PullRequestView {
   async load() {
     const n = String(this.number);
     const [owner, name] = this.repo.split("/");
-    const [pr, comments, diff, repo, queue] = await Promise.allSettled([
-      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "id,title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt,autoMergeRequest"]),
+    const [pr, comments, diff, repo, queue, who] = await Promise.allSettled([
+      ghJson(["pr", "view", n, "--repo", this.repo, "--json", "id,title,body,url,state,isDraft,mergeable,mergeStateStatus,reviewDecision,headRefName,headRefOid,baseRefName,isCrossRepository,additions,deletions,changedFiles,author,comments,reviews,statusCheckRollup,createdAt,autoMergeRequest"]),
       ghJson(["api", `repos/${this.repo}/pulls/${n}/comments`, "--paginate", "--slurp"]),
       gh(["pr", "diff", n, "--repo", this.repo], { timeout: 60000 }),
       this.methods ? Promise.resolve(this.methods) : ghJson(["api", `repos/${this.repo}`, "--jq", "{squash: .allow_squash_merge, merge: .allow_merge_commit, rebase: .allow_rebase_merge}"]),
-      ghJson(["api", "graphql", "-F", `owner=${owner}`, "-F", `name=${name}`, "-F", `number=${this.number}`, "-f", "query=query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { isMergeQueueEnabled isInMergeQueue } } }", "--jq", ".data.repository.pullRequest"]),
+      ghJson(["api", "graphql", "-F", `owner=${owner}`, "-F", `name=${name}`, "-F", `number=${this.number}`, "-f", `query=query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { isMergeQueueEnabled isInMergeQueue mergeCommit { oid ${ROLLUP} } } } }`, "--jq", ".data.repository.pullRequest"]),
+      me(),
     ]);
     if (pr.status === "rejected") {
       this.error = pr.reason?.message ?? String(pr.reason);
@@ -86,6 +103,15 @@ export class PullRequestView {
     }
     if (repo.status === "fulfilled") this.methods = repo.value;
     if (queue.status === "fulfilled") this.queue = { enabled: Boolean(queue.value?.isMergeQueueEnabled), inQueue: Boolean(queue.value?.isInMergeQueue) };
+    if (who.status === "fulfilled") this.me = who.value;
+    // The merge commit's CI on the base branch: the release pipeline.
+    const mc = queue.status === "fulfilled" && p.state === "MERGED" ? queue.value?.mergeCommit : null;
+    if (mc) {
+      const rc = (mc.statusCheckRollup?.contexts?.nodes ?? []).map(check);
+      this.release = { oid: mc.oid, ci: kind(mc.statusCheckRollup?.state), checks: rc, url: `https://github.com/${this.repo}/commit/${mc.oid}` };
+    } else this.release = null;
+    const last = [...(p.reviews ?? [])].reverse().find((r) => r.author?.login === this.me && ["APPROVED", "CHANGES_REQUESTED", "DISMISSED"].includes(r.state));
+    this.pr.approvedByMe = last?.state === "APPROVED";
     this.rows = buildRows(this.files, this.threads, this.folded);
   }
 
@@ -152,6 +178,99 @@ export class PullRequestView {
       }
       cx.notify();
     });
+  }
+
+  // Approves at once, no question asked.
+  approve(cx) {
+    if (!this.pr || this.busy) return;
+    this.busy = "approve";
+    this.actError = null;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      try {
+        await gh(["pr", "review", String(this.number), "--repo", this.repo, "--approve"]);
+        notify({ title: `Approved #${this.number}`, body: this.pr?.title ?? this.repo, level: "info" });
+        setShared(REFRESH, Date.now());
+      } catch (e) {
+        this.actError = String(e?.message ?? e);
+        notify({ title: `Couldn't approve #${this.number}`, body: this.actError, level: "error" });
+      }
+      await this.load();
+      this.busy = null;
+      cx.notify();
+    });
+  }
+
+  // Posts the comment box: a reply to a thread, a review comment on a diff
+  // line (on the head commit), or a comment on the PR. The text stays in the
+  // box when gh refuses.
+  post(cx) {
+    const body = this.box.value().trim();
+    if (!body || this.busy) return;
+    const c = this.compose;
+    this.busy = "post";
+    this.actError = null;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const n = String(this.number);
+      try {
+        if (c?.reply) await gh(["api", `repos/${this.repo}/pulls/${n}/comments/${c.reply}/replies`, "-f", `body=${body}`]);
+        else if (c?.path) await gh(["api", `repos/${this.repo}/pulls/${n}/comments`, "-f", `body=${body}`, "-f", `commit_id=${this.pr.headRefOid}`, "-f", `path=${c.path}`, "-F", `line=${c.line}`, "-f", `side=${c.side}`]);
+        else await gh(["pr", "comment", n, "--repo", this.repo, "--body", body]);
+        this.box.set_value("");
+        this.compose = null;
+        notify({ title: `Commented on #${this.number}`, body: c?.path ? `${c.path}:${c.line}` : c?.reply ? `a reply to ${c.who}` : firstLine(body), level: "info" });
+        setShared(REFRESH, Date.now());
+        await this.load();
+      } catch (e) {
+        this.actError = String(e?.message ?? e);
+      }
+      this.busy = null;
+      cx.notify();
+    });
+  }
+
+  // Points the comment box at a target (or the PR, with null) and focuses it.
+  composeOn(target, cx) {
+    this.compose = target;
+    this.actError = null;
+    this.box.focus();
+    cx.timer.after(300, () => this.box.focus());
+    cx.notify();
+  }
+
+  // The comment box, with what it's for above it. Esc drops a target.
+  composer(t) {
+    const c = this.compose;
+    const busy = this.busy === "post";
+    const what = c?.path ? `Comment on ${c.path}:${c.line}` : c?.reply ? `Reply to ${c.who} on ${c.where}` : `Comment on #${this.number}`;
+    return v_flex()
+      .id("pr-composer")
+      .track_focus(this.handle)
+      .flex_none()
+      .px(14)
+      .py(8)
+      .gap(6)
+      .border_t(1)
+      .border_color(t.border)
+      .bg(t.surface)
+      .font_family(settings().ui_font ?? "Geist")
+      .on_key_down((e, cx) => {
+        if (e.key !== "escape" || !this.compose) return;
+        this.compose = null;
+        cx.notify();
+        cx.stop_propagation();
+      })
+      .child(
+        h_flex()
+          .gap(8)
+          .items_center()
+          .text_size(11.5)
+          .child(div().flex_1().min_w(0).truncate().text_color(c ? t.accent : t.dim).child(what))
+          .when(Boolean(c), (el) => el.child(this.button(t, "pr-compose-off", "Cancel", (cx) => { this.compose = null; cx.notify(); })))
+          .child(this.button(t, "pr-post", busy ? "Posting…" : "Post", (cx) => this.post(cx), { tone: "ansi2", disabled: Boolean(this.busy) })),
+      )
+      .child(div().px(8).rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5).text_color(t.foreground).child(Textarea.new(this.box).w_full().py(4)));
   }
 
   openSpace(cx) {
@@ -221,6 +340,7 @@ export class PullRequestView {
           .child(this.button(t, "pr-github", "GitHub", () => openUrl(this.pr?.url ?? `https://github.com/${this.repo}/pull/${this.number}`)))
           .child(this.button(t, "pr-space", this.busy === "space" ? "Opening…" : "Space", (cx) => this.openSpace(cx), { disabled: !pr || Boolean(this.busy) }))
           .when(Boolean(pr), (el) => el.child(this.circleButton(t)))
+          .child(this.button(t, "pr-approve", this.busy === "approve" ? "Approving…" : pr?.approvedByMe ? "Approved" : "Approve", (cx) => this.approve(cx), { tone: "ansi2", disabled: !open || Boolean(this.busy) || Boolean(pr?.approvedByMe) || pr?.author?.login === this.me }))
           .child(this.button(t, "pr-close", this.busy === "close" ? "Closing…" : "Close", (cx) => { this.confirm = "close"; cx.notify(); }, { tone: "blocked", disabled: !open || Boolean(this.busy) }))
           .child(this.button(t, "pr-comment", this.busy === "comment" ? "Commenting…" : `Comment "${MERGE_COMMENT}"`, (cx) => { this.confirm = "comment"; cx.notify(); }, { disabled: !open || Boolean(this.busy) }))
           .child(this.button(t, "pr-merge", this.busy === "merge" ? "Merging…" : pending ? "Queued" : "Merge", (cx) => { this.confirm = "merge"; cx.notify(); }, { tone: "ansi2", disabled: !open || pending || Boolean(this.busy) }));
@@ -255,6 +375,7 @@ export class PullRequestView {
               .child(div().text_color(t.ansi1).child(`−${pr.deletions}`))
               .child(div().flex_1())
               .when(pr.state !== "OPEN", (el) => el.child(this.chip(t, pr.state.toLowerCase(), pr.state === "MERGED" ? "ansi5" : "dim")))
+              .when(Boolean(this.release), (el) => el.child(this.releaseChip(t)))
               .when(pr.isDraft, (el) => el.child(this.chip(t, "draft", "dim")))
               .child(this.chip(t, ci[0], ci[1]))
               .when(Boolean(review), (el) => el.child(this.chip(t, review[0], review[1])))
@@ -272,6 +393,20 @@ export class PullRequestView {
           .child(this.tabButton(t, "diff", `Diff · ${this.files.length}`))
           .child(this.tabButton(t, "comments", `Comments · ${this.commentCount()}`)),
       );
+  }
+
+  // The merge commit's CI on the base branch; a click opens its Jenkins build.
+  releaseChip(t) {
+    const r = this.release;
+    const [text, tone] = { success: ["CI passed", "ansi2"], failure: ["CI failed", "blocked"], pending: ["CI running", "working"], none: ["no CI yet", "dim"] }[r.ci];
+    return div()
+      .id("pr-release")
+      .flex_none().px(6).h(18).rounded(5).bg(t[tone] + "26").text_size(10.5).font_medium().text_color(t[tone]).flex().items_center()
+      .cursor_pointer()
+      .hover((s) => s.bg(t[tone] + "40"))
+      .tooltip(`The merge commit ${r.oid.slice(0, 7)} on ${this.pr.baseRefName}. ${r.checks.some((c) => /jenkins/i.test(c.url ?? "")) ? "Open in Jenkins" : "Open on GitHub"}`)
+      .on_click(() => openUrl(buildUrl({ checks: r.checks, url: r.url })))
+      .child(`${this.pr.baseRefName}: ${text}`);
   }
 
   // The same CI circle as the sidebar: a click opens the Jenkins build.
@@ -340,7 +475,7 @@ export class PullRequestView {
     if (r.k === "hunk") {
       return h_flex().h(r.size).items_center().px(10).whitespace_nowrap().text_size(11).text_color(t.accent).child(div().truncate().child(r.text));
     }
-    const bg = r.k === "add" ? t.ansi2 + "26" : r.k === "del" ? t.ansi1 + "26" : null;
+    const bg = this.compose?.key === r.key ? t.accent + "40" : r.k === "add" ? t.ansi2 + "26" : r.k === "del" ? t.ansi1 + "26" : null;
     const sign = r.k === "add" ? "+" : r.k === "del" ? "−" : " ";
     return h_flex().h(r.size).items_center().whitespace_nowrap().text_size(12).when(Boolean(bg), (el) => el.bg(bg))
       .child(div().w(44).flex_none().pr(6).text_size(10.5).text_color(t.dim).child(r.old != null ? String(r.old) : ""))
@@ -360,15 +495,21 @@ export class PullRequestView {
     return v_flex()
       .flex_1()
       .min_h(0)
-      .relative()
-      .font_family(mono)
-      .when(Boolean(this.diffError), (el) => el.child(div().flex_none().px(14).py(4).text_size(11.5).text_color(t.working).font_family(ui).child(this.diffError)))
       .child(
-        v_virtual_list("pr-diff", rows.length, rows.map((r) => r.size), (i) => rows[i].key, (range) => rows.slice(range.start, range.end).map((r) => this.row(t, r, mono, ui)))
-          .size_full()
-          .on_item_click((key, cx) => this.rowClick(key, cx)),
+        v_flex()
+          .flex_1()
+          .min_h(0)
+          .relative()
+          .font_family(mono)
+          .when(Boolean(this.diffError), (el) => el.child(div().flex_none().px(14).py(4).text_size(11.5).text_color(t.working).font_family(ui).child(this.diffError)))
+          .child(
+            v_virtual_list("pr-diff", rows.length, rows.map((r) => r.size), (i) => rows[i].key, (range) => rows.slice(range.start, range.end).map((r) => this.row(t, r, mono, ui)))
+              .size_full()
+              .on_item_click((key, cx) => this.rowClick(key, cx)),
+          )
+          .child(Scrollbar.vertical("pr-diff").absolute().inset_0()),
       )
-      .child(Scrollbar.vertical("pr-diff").absolute().inset_0());
+      .when(Boolean(this.compose?.path), (el) => el.child(this.composer(t)));
   }
 
   rowClick(key, cx) {
@@ -377,6 +518,15 @@ export class PullRequestView {
       this.folded.has(path) ? this.folded.delete(path) : this.folded.add(path);
       this.rows = buildRows(this.files, this.threads, this.folded);
       cx.notify();
+    } else if (key.startsWith("l:")) {
+      // A diff line: the comment box aims at it (again: off). A hunk header
+      // and a "\ No newline" line have no number, so nothing.
+      const r = this.rows.find((x) => x.key === key);
+      if (!r || r.k === "hunk" || (r.k === "del" ? r.old : r.new) == null) return;
+      if (this.compose?.key === key) return this.composeOn(null, cx);
+      const path = this.files[Number(key.split(":")[1])]?.path;
+      if (!path) return;
+      this.composeOn(r.k === "del" ? { key, path, line: r.old, side: "LEFT" } : { key, path, line: r.new, side: "RIGHT" }, cx);
     } else if (key.startsWith("n:")) {
       this.tab = "comments";
       this.highlight = Number(key.slice(2));
@@ -432,6 +582,8 @@ export class PullRequestView {
       .gap(8)
       .text_size(12.5)
       .child(comment(c.id, c.who, c.at, c.what, c.body, c.tone))
+      .when(Boolean(c.thread) && this.pr?.state === "OPEN", (el) =>
+        el.child(h_flex().child(this.button(t, `reply-${c.id}`, this.compose?.reply === c.thread.root.id ? "Replying…" : "Reply", (cx) => this.composeOn({ reply: c.thread.root.id, who: c.who, where: `${c.thread.path}${c.thread.line != null ? `:${c.thread.line}` : ""}` }, cx), { disabled: Boolean(this.busy) }).h(22))))
       .when(Boolean(c.thread?.root?.diff_hunk), (el) =>
         el.child(div().px(8).py(4).rounded(6).bg(t.raised).text_size(11).font_family(settings().font_family ?? "JetBrains Mono").text_color(t.muted)
           .child(c.thread.root.diff_hunk.split("\n").slice(-4).join("\n"))))
@@ -442,17 +594,23 @@ export class PullRequestView {
     const cards = this.cards();
     const now = Date.now();
     return v_flex()
-      .id("pr-comments")
       .flex_1()
       .min_h(0)
-      .px(14)
-      .py(10)
-      .gap(8)
-      .overflow_y_scrollbar()
-      .mode("always")
-      .track_scroll(this.scroll)
-      .children(cards.map((c) => this.card(t, c, now)))
-      .when(!cards.length, (el) => el.child(div().text_size(12).text_color(t.dim).child(this.loading ? "Loading…" : "Nothing here yet.")));
+      .child(
+        v_flex()
+          .id("pr-comments")
+          .flex_1()
+          .min_h(0)
+          .px(14)
+          .py(10)
+          .gap(8)
+          .overflow_y_scrollbar()
+          .mode("always")
+          .track_scroll(this.scroll)
+          .children(cards.map((c) => this.card(t, c, now)))
+          .when(!cards.length, (el) => el.child(div().text_size(12).text_color(t.dim).child(this.loading ? "Loading…" : "Nothing here yet."))),
+      )
+      .when(Boolean(this.pr), (el) => el.child(this.composer(t)));
   }
 
   render() {
