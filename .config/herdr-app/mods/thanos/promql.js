@@ -36,3 +36,44 @@ export function tokens(text) {
   }
   return out;
 }
+
+const CLAUSE = new Set(["by", "without", "on", "ignoring", "group_left", "group_right"]);
+const OPEN = new Set(["(", "[", "{"]);
+const CLOSE = new Set([")", "]", "}"]);
+
+/**
+ * One line, spaced as Prometheus's pretty-printer spaces it: `sum by (job) (rate(x{a="1", b="2"}[5m])) / 2`.
+ * Only whitespace moves; strings and everything else stay as typed.
+ */
+export function format(text) {
+  const list = tokens(text).filter((k) => k.kind !== "space");
+  let out = "";
+  let prev = null;
+  let braces = 0, brackets = 0;
+  const parens = [];
+  let unary = false;
+  for (const cur of list) {
+    let sep = " ";
+    const p = prev;
+    const pt = p?.text, ct = cur.text;
+    if (!p) sep = "";
+    else if (brackets > 0 || ct === "]") sep = "";
+    else if (ct === "," || ct === ")" || ct === "}" || ct === "[" || ct === "{") sep = "";
+    else if (OPEN.has(pt)) sep = "";
+    else if (unary) sep = "";
+    else if (braces > 0 && (cur.kind === "operator" || p.kind === "operator")) sep = "";
+    else if (ct === "(") sep = p.kind === "function" || p.kind === "aggregator" ? "" : " ";
+    else sep = " ";
+    if (cur.kind === "operator" && ct === "-" && (!p || p.kind === "operator" || OPEN.has(pt) || pt === "," || p.kind === "keyword")) unary = true;
+    else unary = false;
+    if (ct === "{") braces++;
+    else if (ct === "}") braces = Math.max(0, braces - 1);
+    else if (ct === "[") brackets++;
+    else if (ct === "]") brackets = Math.max(0, brackets - 1);
+    else if (ct === "(") parens.push(p && p.kind === "keyword" && CLAUSE.has(pt) ? "clause" : "group");
+    else if (ct === ")") parens.pop();
+    out += sep + ct;
+    prev = cur;
+  }
+  return out;
+}

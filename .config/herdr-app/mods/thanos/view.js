@@ -6,8 +6,8 @@
 //
 // Keys while the tab has the keyboard (the footer lists them):
 //   n new panel   d duplicate   x remove   j/k ↑/↓ panel   1–9 panel   ↵ edit the query
-//   r run all   t table/graph   l labels   e expand the table   R range   a auto-refresh
-//   o overlay (every panel's series in one chart)   % each series as a share of its max
+//   r run all   t table/graph   f format the query   e expand the table   R range   a auto-refresh
+//   o overlay (every panel's series in one chart)   C copy the range for Grafana
 //   -/= chart height   Esc clear   ⌘S copy the Thanos link   ⇧⌘S screenshot to the clipboard
 // In the query box: Tab completes (an alias, a metric, a label, a value), ↑↓ pick,
 // ↵ runs (or takes the picked suggestion), Esc leaves the box.
@@ -17,7 +17,7 @@ import { v_flex, h_flex, InputState, Input, Popup, ScrollHandle, VirtualListScro
 import { exec, focused, nextCommand, notify, panes, run, setShared, settings, shared, spaces, theme } from "herdr";
 import * as fs from "fs/promises";
 import * as T from "./thanos.js";
-import { tokens } from "./promql.js";
+import { tokens, format } from "./promql.js";
 import { chart, legend, drawable, MAX_DRAWN } from "./chart.js";
 
 const EVERY = 60_000;
@@ -44,7 +44,6 @@ export class ThanosView {
     // An absolute window { from, to } (seconds) when one was pasted or typed; null means "last <range>, ending now".
     this.span = p.from && p.to ? { from: Number(p.from), to: Number(p.to) } : null;
     this.hoverT = null;
-    this.norm = false;
     this.overlay = false;
     this.auto = true;
     this.chartH = 220;
@@ -60,7 +59,7 @@ export class ThanosView {
     this.pickText = "";
     this.confirm = null;
     this.nameLists = {};
-    this.labels = {};
+    this.labelCache = {};
     this.aliases = {};
     this.aliasFile = "";
     this.aliasErr = null;
@@ -122,8 +121,8 @@ export class ThanosView {
   addPanel(expr, cx, focus = true, after = null) {
     const id = `p${++this.seq}`;
     const panel = {
-      id, expr, mode: "graph", list: [], labels: [], error: null, loading: false, gen: 0, ran: null,
-      hidden: new Set(), expanded: false, labelsOpen: false, bounds: null, plotW: 0,
+      id, expr, mode: "graph", list: [], error: null, loading: false, gen: 0, ran: null,
+      hidden: new Set(), expanded: false, bounds: null, plotW: 0,
       input: InputState.new({ placeholder: "PromQL · an alias and its arguments (r5 metric) · Tab completes", value: expr }),
       tableScroll: VirtualListScrollHandle.new(),
     };
@@ -180,7 +179,6 @@ export class ThanosView {
     copy.mode = p.mode;
     copy.hidden = new Set(p.hidden);
     copy.list = p.list;
-    copy.labels = p.labels;
     copy.ran = p.ran;
     cx.timer.after(60, (cx) => { const n = copy.input.value().length; copy.input.set_selected_range({ start: n, end: n }); cx.notify(); });
   }
@@ -265,7 +263,7 @@ export class ThanosView {
       return { count: pts.length, first: pts[0][1], last: pts[pts.length - 1][1], min, max, avg: sum / pts.length, first_t: pts[0][0], last_t: pts[pts.length - 1][0] };
     };
     const out = {
-      url: T.BASE, range: this.span ? T.duration(w.end - w.start) : this.range, fixed: Boolean(this.span), grafana: T.grafanaRange(this.span, this.range), step: w.step, start: w.start, end: w.end, normalise: this.norm, overlay: this.overlay,
+      url: T.BASE, range: this.span ? T.duration(w.end - w.start) : this.range, fixed: Boolean(this.span), grafana: T.grafanaRange(this.span, this.range), step: w.step, start: w.start, end: w.end, overlay: this.overlay,
       panels: this.panels.map((p, i) => ({
         index: i + 1, focused: i === this.focusAt, expr: p.expr, mode: p.mode, error: p.error, loading: p.loading,
         ran: p.ran ? { start: p.ran.start, end: p.ran.end, step: p.ran.step, ms: p.ran.ms, type: p.ran.type } : null,
@@ -329,8 +327,18 @@ export class ThanosView {
     for (const p of this.panels) if (p.expr.trim()) this.run(p, cx);
   }
 
+  // `f`: the query spaced as Prometheus prints it, on one line (promql.js); runs do this too.
+  formatPanel(p, cx) {
+    const next = format(p.expr);
+    if (next !== p.expr) {
+      this.setExpr(p, next, cx);
+      if (this.typing === p.id) p.input.set_selected_range({ start: next.length, end: next.length });
+    }
+    return next;
+  }
+
   run(p, cx) {
-    const expr = p.expr.trim();
+    const expr = this.formatPanel(p, cx).trim();
     if (!expr) return;
     const gen = ++p.gen;
     p.loading = true;
@@ -346,8 +354,7 @@ export class ThanosView {
         const data = p.mode === "table" ? await T.queryInstant(expr, w.end) : await T.queryRange(expr, w.start, w.end, w.step);
         if (gen !== p.gen) return;
         p.list = T.series(data);
-        p.labels = T.labelSummary(p.list);
-        p.ran = { ...w, expr, mode: p.mode, ms: Date.now() - t0, type: data.resultType };
+          p.ran = { ...w, expr, mode: p.mode, ms: Date.now() - t0, type: data.resultType };
         p.expanded = false;
       } catch (e) {
         if (gen !== p.gen) return;
@@ -473,11 +480,11 @@ export class ThanosView {
   // Label names or values for a selector, fetched once per metric (and label).
   labelList(c) {
     const key = c.kind === "label" ? `L:${c.metric}` : `V:${c.metric}:${c.label}`;
-    if (!this.labels[key]) {
+    if (!this.labelCache[key]) {
       const match = c.metric && /^[A-Za-z_:][A-Za-z0-9_:]*$/.test(c.metric) ? c.metric : undefined;
-      this.labels[key] = this.ready.then(() => (c.kind === "label" ? T.labelNames(match) : T.labelValues(c.label, match))).catch((e) => { delete this.labels[key]; throw e; });
+      this.labelCache[key] = this.ready.then(() => (c.kind === "label" ? T.labelNames(match) : T.labelValues(c.label, match))).catch((e) => { delete this.labelCache[key]; throw e; });
     }
-    return this.labels[key];
+    return this.labelCache[key];
   }
 
   accept(cx, idx = null) {
@@ -683,10 +690,9 @@ export class ThanosView {
     else if (k === "enter" && p) this.edit(p, cx);
     else if (k === "r") this.runAll(cx);
     else if (k === "t" && p) this.toggleMode(p, cx);
-    else if (k === "l" && p) p.labelsOpen = !p.labelsOpen;
+    else if (k === "f" && p) this.formatPanel(p, cx);
     else if (k === "e" && p) p.expanded = !p.expanded;
     else if (k === "o") this.overlay = !this.overlay;
-    else if (k === "%" || (m.shift && k === "5")) this.norm = !this.norm;
     else if (k === "R" || (m.shift && k === "r")) this.openPicker("range", cx);
     else if (k === "a") this.auto = !this.auto;
     else if (k === "C" || (m.shift && k === "c")) this.copyRange(cx);
@@ -770,7 +776,6 @@ export class ThanosView {
           .child(div().w(1).h(16).bg(t.border))
           .child(this.iconButton(t, "th-new", `${ICON}plus.svg`, "New panel under the focused one (n)", (cx) => this.addPanel("", cx, true, this.focusAt), { label: "panel" }))
           .child(this.iconButton(t, "th-overlay", "mods/workspace-chrome/layers.svg", this.overlay ? "Overlay is on: every panel's series in one chart at the top (o)" : "Overlay every panel's series in one chart, to compare them (o)", (cx) => { this.overlay = !this.overlay; cx.notify(); }, { on: this.overlay, label: "overlay" }))
-          .child(this.iconButton(t, "th-norm", "mods/workspace-chrome/git-compare.svg", this.norm ? "Each series is drawn as a share of its own maximum (% turns it off)" : "Draw each series as a share of its own maximum, so different scales compare (%)", (cx) => { this.norm = !this.norm; cx.notify(); }, { on: this.norm, label: "normalise" }))
           .child(div().flex_1())
           .when(Boolean(working), (el) => el.child(h_flex().gap(6).items_center().px(8).h(22).rounded(6).bg(t.accent + "1f").child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.accent).spin(900)).child(div().text_size(11.5).text_color(t.accent).child(working))))
           .child(this.iconButton(t, "th-link", `${ICON}link.svg`, "Copy a Thanos link to these queries (⌘S)", (cx) => this.copyLink(cx)))
@@ -806,7 +811,7 @@ export class ThanosView {
     const ds = drawable(t, p.list, p.hidden, this.plotWidth(p));
     return [
       chart(t, {
-        id: p.id, series: ds, start: r.start, end: r.end, step: r.step, hoverT: this.hoverT, norm: this.norm, height: this.chartH, width: this.plotWidth(p),
+        id: p.id, series: ds, start: r.start, end: r.end, step: r.step, hoverT: this.hoverT, norm: false, height: this.chartH, width: this.plotWidth(p),
         onHover: (ts, bounds, cx) => {
           p.plotW = bounds.width;
           const q = Math.round(ts / r.step) * r.step;
@@ -858,37 +863,6 @@ export class ThanosView {
       .child(body)
       .when(more > 0, (el) => el.child(foot(`${more} more · show all (e)`, "Draw every row", () => { p.expanded = true; })))
       .when(p.expanded && rows.length > SAMPLE, (el) => el.child(foot(`show the first ${SAMPLE} (e)`, "Back to the sample", () => { p.expanded = false; })));
-  }
-
-  labelsDrawer(t, p) {
-    const mono = settings().font_family;
-    const MAXV = 24;
-    if (!p.labels.length) return div().px(8).py(4).text_size(11.5).text_color(t.dim).child("No labels in the result");
-    return v_flex()
-      .gap(3)
-      .p(8)
-      .rounded(6)
-      .bg(t.background)
-      .border_1()
-      .border_color(t.border)
-      .child(div().text_size(11).text_color(t.dim).child("Labels in the result · click a value to add it to the query's selector and run again"))
-      .children(p.labels.map((l) => h_flex().gap(6).items_center().flex_wrap().gap_y(2)
-        .child(div().w(150).flex_none().truncate().font_family(mono).text_size(11.5).text_color(t.accent).child(`${l.label} (${l.values.length})`))
-        .children(l.values.slice(0, MAXV).map(([v, n]) => h_flex()
-          .id(`${p.id}-lv-${l.label}-${v}`)
-          .h(20)
-          .px(6)
-          .gap(4)
-          .items_center()
-          .rounded(4)
-          .bg(t.raised)
-          .cursor_pointer()
-          .hover((s) => s.bg(t.hover))
-          .tooltip(`${l.label}="${v}" · in ${n} series`)
-          .on_click((_e, cx) => { cx.stop_propagation(); this.setExpr(p, T.withLabel(p.expr, l.label, v), cx); this.run(p, cx); })
-          .child(div().max_w(260).truncate().font_family(mono).text_size(11).text_color(t.foreground).child(v))
-          .child(div().text_size(10).text_color(t.dim).child(String(n)))))
-        .when(l.values.length > MAXV, (el) => el.child(div().text_size(10.5).text_color(t.dim).child(`+${l.values.length - MAXV}`)))));
   }
 
   compPanel(t, p) {
@@ -1011,7 +985,7 @@ export class ThanosView {
           )
           .child(this.iconButton(t, `${p.id}-run`, `${ICON}play.svg`, "Run (↵ in the box)", (cx) => this.run(p, cx), { spin: p.loading }))
           .child(this.iconButton(t, `${p.id}-mode`, `${ICON}table.svg`, p.mode === "graph" ? "Show as a table: an instant query at the end of the range (t)" : "Show as a graph: a range query (t)", (cx) => this.toggleMode(p, cx), { on: p.mode === "table" }))
-          .child(this.iconButton(t, `${p.id}-labels`, `${ICON}tag.svg`, "The result's labels and values, to narrow the query (l)", (cx) => { p.labelsOpen = !p.labelsOpen; cx.notify(); }, { on: p.labelsOpen }))
+          .child(this.iconButton(t, `${p.id}-fmt`, `${ICON}format.svg`, "Format the query: Prometheus's spacing on one line (f; also on every run)", (cx) => this.formatPanel(p, cx)))
           .child(this.iconButton(t, `${p.id}-dup`, `${ICON}copy.svg`, "Duplicate this panel under it, to alter the query (d)", (cx) => this.duplicate(p, cx)))
           .child(this.iconButton(t, `${p.id}-x`, "mods/workspace-chrome/x.svg", "Remove this panel (x asks first)", (cx) => this.remove(p, cx, false))),
       )
@@ -1019,7 +993,6 @@ export class ThanosView {
       .when(p.mode === "graph" && Boolean(p.ran) && p.list.length > 0, (el) => el.children(this.graph(t, p)))
       .when(p.mode === "graph" && Boolean(p.ran) && !p.list.length && !p.error, (el) => el.child(div().h(60).flex().items_center().justify_center().text_size(11.5).text_color(t.dim).child("No series")))
       .when(p.mode === "table" && Boolean(p.ran), (el) => el.child(this.table(t, p)))
-      .when(p.labelsOpen && Boolean(p.ran), (el) => el.child(this.labelsDrawer(t, p)))
   }
 
   overlayCard(t) {
@@ -1043,9 +1016,9 @@ export class ThanosView {
       .border_1()
       .border_color(t.accent + "66")
       .bg(t.surface)
-      .child(h_flex().gap(8).items_center().child(div().text_size(12).font_medium().text_color(t.accent).child("Overlay")).child(div().text_size(11).text_color(t.dim).child(`${all.length} series from ${ran.length} panels${all.length > MAX_DRAWN ? ` · first ${MAX_DRAWN} drawn` : ""}${this.norm ? " · each as a share of its max" : ""}`)))
+      .child(h_flex().gap(8).items_center().child(div().text_size(12).font_medium().text_color(t.accent).child("Overlay")).child(div().text_size(11).text_color(t.dim).child(`${all.length} series from ${ran.length} panels${all.length > MAX_DRAWN ? ` · first ${MAX_DRAWN} drawn` : ""}`)))
       .child(chart(t, {
-        id: "overlay", series: ds, start, end, step, hoverT: this.hoverT, norm: this.norm, height: Math.max(this.chartH, 260), width: w,
+        id: "overlay", series: ds, start, end, step, hoverT: this.hoverT, norm: false, height: Math.max(this.chartH, 260), width: w,
         onHover: (ts, _b, cx) => { const q = Math.round(ts / step) * step; if (q !== this.hoverT) { this.hoverT = q; cx.notify(); } },
         onLeave: (cx) => { if (this.hoverT !== null) { this.hoverT = null; cx.notify(); } },
       }))
@@ -1103,7 +1076,7 @@ export class ThanosView {
     } else if (this.typing) {
       hints = h_flex().gap(10).items_center().children([key("Tab", "complete"), key("↑↓", "pick"), key("↵", "run"), key("Esc", "leave the box"), key("alias args", "r5 metric label")]);
     } else {
-      hints = h_flex().gap(10).items_center().children([key("n", "new"), key("d", "duplicate"), key("x", "remove"), key("j/k", "panel"), key("↵", "edit"), key("r", "run all"), key("t", "table"), key("l", "labels"), key("R", "range"), key("C", "range→grafana"), key("o", "overlay"), key("%", "normalise"), key("-/=", "height"), key("⌘S", "link"), key("⇧⌘S", "shot")]);
+      hints = h_flex().gap(10).items_center().children([key("n", "new"), key("d", "duplicate"), key("x", "remove"), key("j/k", "panel"), key("↵", "edit"), key("r", "run all"), key("t", "table"), key("f", "format"), key("R", "range"), key("C", "range→grafana"), key("o", "overlay"), key("-/=", "height"), key("⌘S", "link"), key("⇧⌘S", "shot")]);
     }
     const n = this.panels.length;
     return h_flex()
