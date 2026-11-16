@@ -14,6 +14,6 @@ export default class Crest extends View {
     return h_flex().size_full().items_end().justify_end().pr(14).pb(4)
       .child(ART === "fern"
         ? svg("mods/crest/fern.svg").w(100).h(20).text_color(t.accent).opacity(0.85)
-        : svg("mods/crest/ridge.svg").w(96).h(16).text_color(t.dim).opacity(0.8));
+        : svg("mods/crest/pines.svg").w(96).h(16).text_color(t.dim).opacity(0.8));
   }
 }
