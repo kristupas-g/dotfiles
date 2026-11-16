@@ -64,7 +64,7 @@ export class ThanosView {
     this.compScroll = ScrollHandle.new();
     this.pick = InputState.new({ placeholder: "" });
     this.pick.on("change", (_e, cx) => { this.pickText = this.pick.value(); this.pickAt = 0; cx.notify(); });
-    this.pick.on("submit", (_e, cx) => this.choose(cx));
+    this.pick.on("submit", (_e, cx) => { if (this.lastKey?.k === "enter" && Date.now() - this.lastKey.at < 60) return; this.lastKey = { k: "enter", at: Date.now() }; this.choose(cx); });
     const exprs = Array.isArray(p.queries) && p.queries.length ? p.queries.map(String) : [String(p.query ?? "")];
     for (const e of exprs) this.addPanel(e, cx, false);
     this.focusAt = 0;
@@ -97,6 +97,7 @@ export class ThanosView {
     else if (c === "link") this.copyLink(cx);
     else if (c === "shot") this.shot(cx);
     else if (arg("shot") !== null) this.shot(cx, arg("shot"));
+    else if (arg("key") !== null) this.key({ key: arg("key"), modifiers: {} }, cx);
     else if (arg("add") !== null) this.addFromOutside(arg("add"), cx);
     else if (arg("dump") !== null) this.dump(arg("dump"), cx);
     else if (c === "new") this.addPanel("", cx, true, this.focusAt);
@@ -467,6 +468,8 @@ export class ThanosView {
   }
 
   submit(p, cx) {
+    if (this.lastKey?.k === "enter" && Date.now() - this.lastKey.at < 60) return;
+    this.lastKey = { k: "enter", at: Date.now() };
     if (this.comp?.panel === p && this.comp.at >= 0) return this.accept(cx);
     if (Date.now() < this.skipSubmit) return;
     this.comp = null;
@@ -561,10 +564,18 @@ export class ThanosView {
 
   // ---- keys ----
 
+  // Keys arrive two ways: as events on the box or the root, and as the
+  // `thanos.key:<name>` commands keys.json binds for ↑ ↓ ⇥ ↵ Esc (the input
+  // control keeps those from the handlers; a bound key fires even while a box
+  // has the keyboard). A press that comes both ways counts once.
   key(e, cx) {
     const k = e.key;
     const m = e.modifiers ?? {};
     if (m.platform) return;
+    const now = Date.now();
+    if (this.lastKey && this.lastKey.k === k && now - this.lastKey.at < 60) return;
+    this.lastKey = { k, at: now };
+    if (!cx.stop_propagation) cx.stop_propagation = () => {};
     if (this.picker) {
       const n = this.pickItems().length;
       if (k === "escape") this.closePicker(cx);
@@ -583,7 +594,7 @@ export class ThanosView {
       else if (comp && (k === "down" || (m.control && k === "n"))) { comp.at = n ? (comp.at + 1) % n : -1; this.compScroll.scroll_to_item(Math.max(0, comp.at)); }
       else if (comp && (k === "up" || (m.control && k === "p"))) { comp.at = n ? (comp.at <= 0 ? n - 1 : comp.at - 1) : -1; this.compScroll.scroll_to_item(Math.max(0, comp.at)); }
       else if (k === "tab" && comp && n) this.accept(cx);
-      else if (k === "enter" && comp && comp.at >= 0) this.accept(cx);
+      else if (k === "enter") { const p = this.panels.find((x) => x.id === this.typing); if (comp && comp.at >= 0) this.accept(cx); else if (p) { this.comp = null; this.run(p, cx); } }
       else if (k === "tab" && !comp) { const p = this.panels.find((x) => x.id === this.typing); if (p) this.suggest(p, cx); }
       else return;
       cx.stop_propagation();

@@ -86,7 +86,12 @@
   "mod:thanos": {
     "cmd-s": "thanos.link",
     "cmd-shift-s": "thanos.shot",
-    "cmd-enter": "thanos.run"
+    "cmd-enter": "thanos.run",
+    "up": "thanos.key:up",
+    "down": "thanos.key:down",
+    "tab": "thanos.key:tab",
+    "enter": "thanos.key:enter",
+    "escape": "thanos.key:escape"
   },
   "terminal": {
     "cmd-f": "terminal.search",
