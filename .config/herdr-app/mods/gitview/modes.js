@@ -60,6 +60,7 @@ export const MODES = {
     enter: (v, cx, { row, line } = {}) => (row ? v.select(row, cx, { line }) : v.reshowWork(cx)),
     header: (v, t, notes) => filesHeader(t, {
       status: v.work?.status,
+      sync: v.sync, // local patch: unpushed
       files: v.work?.files() ?? 0,
       ...v.work?.totals(),
       notes: notes.length,
@@ -79,6 +80,10 @@ export const MODES = {
       { caps: ["enter"], label: enterLabel, rank: 3, on: { enter: (v, cx) => v.enter(cx), e: (v, cx) => v.enter(cx) } },
       { caps: ["x"], label: "discard", rank: 4, when: worktree, on: { x: (v, cx) => v.rowAction("discard", null, cx) } },
       { caps: ["c"], label: "commit", rank: 5, when: worktree, on: { c: (v) => worktree(v) && run("git-actions.commit") } }, // local patch: was v.commitInput.focus()
+      // local patch: push keys: the list's own, so the footer and the `?` card show them (keys.json binds them for the diff pane).
+      { caps: ["P"], label: "push", rank: 5.5, when: worktree, on: { P: (v) => worktree(v) && run("git-actions.push") } },
+      { caps: ["o"], label: "pull request", rank: 5.7, when: worktree, on: { o: (v) => worktree(v) && run("git-actions.pr") } },
+      { caps: ["space"], label: "commit & push", rank: 0.5, when: worktree, on: { space: (v) => worktree(v) && run("git-actions.ship") } },
       { caps: ["l"], label: "history", rank: 6, on: { l: (v, cx) => openLog(v, cx) } },
       { caps: ["t"], label: "tree", rank: 7, on: { t: (v, cx) => v.toggleTree(cx) } },
       { caps: ["n"], label: "notes", rank: 8, on: { n: back("notes") } },

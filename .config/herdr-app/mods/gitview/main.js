@@ -13,7 +13,7 @@
 
 import { View } from "gpui-kit";
 import { v_flex, TextareaState } from "gpui-base";
-import { focused, notify, panes, props, shared, theme } from "herdr";
+import { exec, focused, notify, panes, props, shared, theme } from "herdr";
 import { Tracer, event, run } from "./telemetry.js";
 import { endTerminal, gv, labelled, message, onArgs } from "./engine.js";
 import { diffArgs, isDark, sameFile, sameShown } from "./model.js";
@@ -35,6 +35,26 @@ import { MODES } from "./modes.js";
 // exec gives up on a program after 30 s: a commit that took that long may
 // still be running (a slow hook) or have finished.
 const EXEC_LIMIT_MS = 29000;
+
+// local patch: unpushed (mods/git-actions/patch-gitview.sh, re-run after
+// reinstalling herdr-gitview): how HEAD stands against its upstream, for
+// the header's marker (chrome.js syncPills): {upstream, ahead, behind},
+// upstream null for a branch never pushed; null for a repo with no remote,
+// or when git can't be asked. Local repos only.
+async function syncState(root) {
+  try {
+    const remotes = await exec("git", ["remote"], { cwd: root, timeout: 10000 });
+    if (remotes.code !== 0 || !remotes.stdout.trim()) return null;
+    const up = await exec("git", ["rev-parse", "--abbrev-ref", "@{u}"], { cwd: root, timeout: 10000 });
+    if (up.code !== 0) return { upstream: null, ahead: 0, behind: 0 };
+    const r = await exec("git", ["rev-list", "--left-right", "--count", "@{u}...HEAD"], { cwd: root, timeout: 10000 });
+    if (r.code !== 0) return null;
+    const [behind, ahead] = r.stdout.trim().split(/\s+/).map(Number);
+    return { upstream: up.stdout.trim(), ahead: ahead || 0, behind: behind || 0 };
+  } catch {
+    return null;
+  }
+}
 
 export default class GitList extends View {
   init(_props, cx) {
@@ -88,7 +108,23 @@ export default class GitList extends View {
     // copy's own, and from a light timer: a hidden or covered copy isn't
     // drawn, but its timers run.
     this.kick = debounced(cx, 0, (cx) => this.notice(cx));
+    this.born = Date.now(); // local patch: the keyboard
     cx.timer.every(300, (cx) => {
+      // local patch: the keyboard (mods/git-actions/patch-gitview.sh, re-run
+      // after reinstalling herdr-gitview): cmd-g's list takes the keys
+      // whenever its tab comes on screen (a tab or space switch), so j/k, s
+      // and c act on the files at once; the app put them back where they
+      // were in that tab (the diff pane, say). Not on the first look: init
+      // took them already.
+      if (this.place.takesKeyboard) {
+        const shown = this.place.shown();
+        // Just made (cmd-g): the pane the app knows can lag behind init's
+        // one try, and a chat with a working agent may take the focus
+        // back, so for 3 s the list asks again whenever it isn't focused.
+        const young = Date.now() - this.born < 3000;
+        if (shown && (this.wasShown === false || (young && !this.handle.is_focused()))) this.focusList(cx);
+        this.wasShown = shown;
+      }
       const r = this.reviveAt;
       if (r && Date.now() >= r.due) {
         this.reviveAt = null;
@@ -544,6 +580,9 @@ export default class GitList extends View {
       }
       this.error = null;
       this.loadedKey = ctx.key;
+      // local patch: unpushed: the header's marker, read beside the status.
+      if (!same || ctx.on) this.sync = null;
+      if (!ctx.on) syncState(status.root).then((sync) => { if (this.loadedKey === ctx.key) { this.sync = sync; cx.notify(); } });
       if (!ctx.on) setIgnoredDirs(status.root, status.ignored_dirs ?? []);
       if (!ctx.on) {
         watch(this.watcher, status.root, cx, (cx, paths) => {

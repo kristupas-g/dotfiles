@@ -8,6 +8,13 @@ import { h_flex } from "gpui-base";
 import { opsFor } from "./actions.js";
 import { icon, iconButton, letter, lineCounts, pathLabel } from "./chrome.js";
 
+// local patch: state icons (mods/git-actions/patch-gitview.sh, re-run after
+// reinstalling herdr-gitview): a green circled check before a staged file
+// and its section's title, a dim hollow circle before an unstaged one, so
+// what a commit takes is seen at a glance. The working tree's two sections
+// only: a commit's files and "vs base" get none.
+const stateIcon = (t, section) => (section.id === "staged" ? icon("staged", 13, t.ansi2) : section.id === "changes" ? icon("unstaged", 13, t.dim) : null);
+
 export const ROW = 28;
 const HEADER = 28;
 const INDENT = 16;
@@ -44,6 +51,7 @@ export function renderRow(row, ctx) {
       .gap(6)
       .items_center()
       .on_hover((h, cx) => ctx.onHover(row, h, cx))
+      .children([stateIcon(t, row.section)].filter(Boolean)) // local patch: state icons
       .child(div().flex_1().min_w(0).truncate().text_size(11).font_semibold().text_color(t.muted).child(row.section.title.toUpperCase()))
       .child(div().flex_none().px(5).rounded(8).bg(t.raised).text_size(10.5).text_color(t.muted).child(String(row.section.files.length)))
       .when(hot && tools, (e) => e.child(actions(t, row, " all", ctx)));
@@ -74,6 +82,7 @@ export function renderRow(row, ctx) {
   const f = row.file;
   return base
     .when(ctx.tree, (e) => e.child(div().w(12).flex_none()))
+    .children([stateIcon(t, row.section)].filter(Boolean)) // local patch: state icons
     .child(letter(t, f.letter))
     .child(pathLabel(t, f.path, { folder: !ctx.tree }))
     .when(Boolean(ctx.inNvim?.(row)), (e) => e.child(div().flex_none().px(5).rounded(5).border_1().border_color(t.border).text_size(10).text_color(t.muted).child("in nvim")))

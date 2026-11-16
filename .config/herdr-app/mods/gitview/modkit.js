@@ -2,7 +2,7 @@
 // wait for them), a footer message that fades, the folder watch, the
 // command loop and key names. Shared (linked; install copies it).
 
-import { closeOverlay, focused, nextCommand, notify, panes, props, watchFolder } from "herdr";
+import { closeOverlay, exec, focused, nextCommand, notify, panes, props, watchFolder } from "herdr";
 import { message } from "./engine.js";
 import { changedAt, ignoredDirs, stampChanged, stampOf } from "./shared.js";
 import { Tracer, tracer } from "./telemetry.js";
@@ -256,6 +256,29 @@ export function batchPaths(root, batch) {
   return out.length > 50 ? "all" : out;
 }
 
+// local patch: ignored files (mods/git-actions/patch-gitview.sh, re-run
+// after reinstalling herdr-gitview): a batch's paths that git ignores by
+// themselves, outside the ignored folders the status named (this app's
+// shared.json, written on every setShared, in a repo that holds ~/.config),
+// aren't a change either: `git check-ignore` drops them (a tracked file is
+// never reported). Without this, every mod's shared write re-ran the
+// status in every list, which wrote shared state again: a loop that kept
+// the app busy. Git's own files stay. When git can't be asked, the batch
+// counts as a change.
+async function unignored(root, paths) {
+  const files = paths.filter((p) => !p.startsWith(".git/"));
+  if (!files.length) return paths;
+  try {
+    // (NUL-separated, so no quoting of odd paths; -z needs --stdin.)
+    const r = await exec("/bin/sh", ["-c", 'printf "%s\\0" "$@" | git check-ignore -z --stdin', "sh", ...files], { cwd: root, timeout: 10000 });
+    if (r.code !== 0 && r.code !== 1) return paths; // 1: none ignored
+    const ignored = new Set(r.stdout.split("\0").filter(Boolean));
+    return paths.filter((p) => !ignored.has(p));
+  } catch {
+    return paths;
+  }
+}
+
 // Calls `changed(cx, paths)` whenever something that matters under `root`
 // changes (`batchPaths`), until `watcher.root` is something else. A local
 // repo only (no watch elsewhere). Only the newest copy waiting on a folder
@@ -271,8 +294,10 @@ export function watch(watcher, root, cx, changed) {
   cx.spawn(async (cx) => {
     try {
       while (watcher.root === root) {
-        const paths = batchPaths(root, await watchFolder(root));
+        let paths = batchPaths(root, await watchFolder(root));
         if (paths !== "all" && !paths.length) continue; // nothing that matters
+        if (paths !== "all") paths = await unignored(root, paths); // local patch: ignored files
+        if (paths !== "all" && !paths.length) continue;
         const wait = STAMP_MS - (Date.now() - changedAt(root));
         if (wait > 0) await cx.sleep(wait);
         if (watcher.root !== root) break;

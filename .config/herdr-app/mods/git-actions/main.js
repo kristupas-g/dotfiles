@@ -4,7 +4,12 @@
 // them in the `mod:gitview` and `mod:gitview-diff` sections; they also work
 // from `herdr-app do`):
 //   git-actions.push  (P in gitview)  `git push`, `-u origin <branch>` the first
-//                                       time; progress and the result as toasts.
+//                                       time. A popup shows it running (the
+//                                       branch, where it goes, the seconds so
+//                                       far); it closes itself when the push is
+//                                       done and a toast says what went, or
+//                                       stays with the error. Esc hides it; the
+//                                       push goes on.
 //   git-actions.pr    (o in gitview)  a popup for the pull request's title and
 //                                       description; ⌘↩ creates it (pushing first
 //                                       when needed), ⌘D marks it a draft, Esc
@@ -17,10 +22,23 @@
 //   git-actions.commit  (c in gitview)  a popup for the commit message: ↩ commits
 //                                       the staged changes, or everything when
 //                                       nothing is staged (as gitview's own box
-//                                       did), ⇧↩ a new line, Esc cancels.
-// Space in the file list stages the Changes section: that's gitview's own
-// `gitview.button:stage:section:changes`, bound in keys.json, not this mod.
-// The popups are this same mod opened with props { dialog: true | "commit", ... }.
+//                                       did), ⇧↩ a new line, Esc cancels. On
+//                                       main, master or the remote's default
+//                                       branch it first asks for a new branch
+//                                       to commit on (↩ makes it, the changes
+//                                       come along, then the commit popup);
+//                                       ⌘↩ there commits on that branch anyway
+//                                       (dotfiles commits straight to main).
+//   git-actions.ship    (space in gitview) one key for the lot: the commit popup
+//                                       for everything (staged or not: `git add
+//                                       -A` at commit time), the same branch
+//                                       guard first, and the push right after
+//                                       the commit (nothing to commit: the push
+//                                       alone).
+// Every popup closes with Esc; one that's done (pushed, or failed) with ↩ too.
+// The popups are this same mod opened with props { dialog: true | "commit" |
+// "push", ... }. The push runs in the root copy (closing a copy cancels its
+// execs, so a dialog can't run it), and its popup reads shared PUSH.
 // gitview's modes.js is patched so its `c` runs git-actions.commit and its
 // own commit box is gone (see AGENTS.md).
 
@@ -29,6 +47,8 @@ import { v_flex, h_flex, InputState, Input, TextareaState, Textarea } from "gpui
 import { closeOverlay, exec, focused, nextCommand, notify, openOverlay, props, run, setShared, shared, spaces, theme } from "herdr";
 
 const REFRESH = "prs.refresh";
+// The push on its way: { id, branch, upstream, ahead, at, done, error }.
+const PUSH = "git-actions.push";
 
 const firstLine = (s) => (s ?? "").split("\n").find((l) => l.trim()) ?? "";
 
@@ -104,18 +124,34 @@ async function ignoreSelected(which) {
 }
 
 // What a commit now would take, as gitview's box decided: the staged
-// changes, or everything when nothing is staged; never with conflicts.
+// changes, or everything when nothing is staged; never with conflicts. The
+// four git calls run at once (each costs the app's exec round trip).
 async function commitInfo(cwd) {
-  const conflicts = await git(["diff", "--name-only", "--diff-filter=U"], cwd);
+  const [conflicts, staged, dirty, branch] = await Promise.all([
+    git(["diff", "--name-only", "--diff-filter=U"], cwd),
+    exec("git", ["diff", "--cached", "--quiet"], { cwd, timeout: 10000 }).then((r) => r.code !== 0),
+    git(["status", "--porcelain"], cwd),
+    git(["rev-parse", "--abbrev-ref", "HEAD"], cwd).catch(() => ""),
+  ]);
   if (conflicts) throw new Error(`Resolve the conflicts first (${firstLine(conflicts)})`);
-  const staged = (await exec("git", ["diff", "--cached", "--quiet"], { cwd, timeout: 10000 })).code !== 0;
-  if (!staged && !(await git(["status", "--porcelain"], cwd))) throw new Error("Nothing to commit");
-  return staged;
+  return { staged, dirty, branch };
 }
-async function commit(cwd, staged, message) {
-  if (!staged) await git(["add", "-A"], cwd);
+// `all`: everything, staged or not (ship).
+async function commit(cwd, staged, message, all = false) {
+  if (!staged || all) await git(["add", "-A"], cwd);
   return firstLine(await git(["commit", "-m", message], cwd, 120000));
 }
+
+// A branch commits shouldn't land on: main, master, or the one origin's
+// HEAD points at (when the clone knows it).
+async function isProtected(cwd, branch) {
+  if (branch === "main" || branch === "master") return true;
+  const head = await git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd).catch(() => "");
+  return Boolean(head) && head.replace(/^origin\//, "") === branch;
+}
+
+// Every gitview list re-reads its repo (the header's unpushed marker too).
+const refreshGitview = () => run("gitview.key:r");
 
 // The PR as a tab of the prs mod, in this space.
 function openPr(space, repo, number) {
@@ -142,6 +178,7 @@ export default class GitActions extends View {
         if (c === "push") this.doPush(cx);
         else if (c === "pr") this.openDialog(cx);
         else if (c === "commit") this.openCommit(cx);
+        else if (c === "ship") this.openCommit(cx, { all: true, push: true });
         else if (c === "ignore" || c === "exclude") this.act(c === "ignore" ? "add to .gitignore" : "add to .git/info/exclude", () => ignoreSelected(c), cx);
       }
     });
@@ -154,7 +191,7 @@ export default class GitActions extends View {
     cx.notify();
     cx.spawn(async (cx) => {
       try {
-        await fn();
+        await fn(cx);
       } catch (e) {
         notify({ title: `Couldn't ${what}`, body: String(e?.message ?? e), level: "error", timeout: 8000 });
       }
@@ -163,12 +200,30 @@ export default class GitActions extends View {
     });
   }
 
+  // The push runs here, in the copy that never closes; the popup shows how
+  // it goes (shared PUSH) and is closed once it's done, unless it failed:
+  // then it stays with the error until Esc.
   doPush(cx) {
-    this.act("push", async () => {
+    this.act("push", async (cx) => {
       const info = await branchInfo(where().cwd);
       if (info.upstream && !info.ahead) return notify({ title: "Nothing to push", body: `${info.branch} is up to date with ${info.upstream}`, level: "info", timeout: 3000 });
-      notify({ title: `Pushing ${info.branch}…`, body: info.upstream ? `${info.ahead} commit${info.ahead === 1 ? "" : "s"}` : "setting the upstream", level: "info", timeout: 4000 });
-      notify({ title: "Pushed", body: await push(info), level: "info" });
+      const id = `p${Date.now().toString(36)}`;
+      const state = { id, branch: info.branch, upstream: info.upstream, ahead: info.ahead, at: Date.now(), done: false, error: null };
+      setShared(PUSH, state);
+      const overlay = openOverlay({ mod: "git-actions", kind: "dialog", width: 440, props: { dialog: "push", id } });
+      try {
+        const out = await push(info);
+        setShared(PUSH, { ...state, done: true });
+        notify({ title: "Pushed", body: out, level: "success" });
+        refreshGitview();
+        // The popup says "Pushed" for a moment before it goes (a toast alone
+        // was easy to miss); ↩ or Esc close it sooner.
+        await cx.sleep(1500);
+        try { closeOverlay(overlay); } catch { /* closed already */ }
+      } catch (e) {
+        setShared(PUSH, { ...state, done: true, error: String(e?.message ?? e) });
+        throw e; // act's toast too
+      }
     }, cx);
   }
 
@@ -177,31 +232,44 @@ export default class GitActions extends View {
     this.act("open the pull request popup", async () => {
       const w = where();
       const info = await branchInfo(w.cwd);
-      const [repo, base] = (await gh(["repo", "view", "--json", "nameWithOwner,defaultBranchRef", "--jq", "[.nameWithOwner, .defaultBranchRef.name] | join(\" \")"], w.cwd)).split(" ");
+      // The two gh calls go to GitHub (about 0.7 s each): at once, with the
+      // last commit's message.
+      const [repoBase, open, title, body] = await Promise.all([
+        gh(["repo", "view", "--json", "nameWithOwner,defaultBranchRef", "--jq", "[.nameWithOwner, .defaultBranchRef.name] | join(\" \")"], w.cwd),
+        gh(["pr", "list", "--head", info.branch, "--state", "open", "--json", "number,url", "--limit", "1"], w.cwd).then((out) => JSON.parse(out)[0]),
+        git(["log", "-1", "--format=%s"], w.cwd).catch(() => ""),
+        git(["log", "-1", "--format=%b"], w.cwd).catch(() => ""),
+      ]);
+      const [repo, base] = repoBase.split(" ");
       if (info.branch === base) throw new Error(`You're on ${base}: check out a branch first`);
-      const open = JSON.parse(await gh(["pr", "list", "--head", info.branch, "--state", "open", "--json", "number,url", "--limit", "1"], w.cwd))[0];
       if (open) {
         notify({ title: `#${open.number} is open for ${info.branch}`, body: open.url, level: "info", timeout: 4000 });
         return openPr(w.space, repo, open.number);
       }
-      const [title, body] = await Promise.all([git(["log", "-1", "--format=%s"], w.cwd).catch(() => ""), git(["log", "-1", "--format=%b"], w.cwd).catch(() => "")]);
       openOverlay({ mod: "git-actions", kind: "dialog", width: 620, props: { dialog: true, ...info, space: w.space, repo, base, title, body } });
     }, cx);
   }
 
   // The commit popup, with what it will commit decided now (the header says).
-  openCommit(cx) {
+  // On a protected branch the new-branch popup comes first (makeBranch then
+  // opens this one on the new branch). `all` and `push` (ship) ride along.
+  openCommit(cx, { all = false, push = false } = {}) {
     this.act("open the commit popup", async () => {
       const w = where();
-      const staged = await commitInfo(w.cwd);
-      const branch = await git(["rev-parse", "--abbrev-ref", "HEAD"], w.cwd).catch(() => "");
-      openOverlay({ mod: "git-actions", kind: "dialog", width: 560, props: { dialog: "commit", cwd: w.cwd, branch, staged } });
+      const { staged, dirty, branch } = await commitInfo(w.cwd);
+      if (!staged && !dirty) {
+        if (push) return this.doPush(cx); // ship with a clean tree: the push alone
+        throw new Error("Nothing to commit");
+      }
+      const p = { cwd: w.cwd, branch, staged, all, push };
+      if (await isProtected(w.cwd, branch)) return openOverlay({ mod: "git-actions", kind: "dialog", width: 520, props: { dialog: "branch", ...p } });
+      openOverlay({ mod: "git-actions", kind: "dialog", width: 560, props: { dialog: "commit", ...p } });
     }, cx);
   }
 
   render() {
     const d = props()?.dialog;
-    return d === "commit" ? this.renderCommit() : d ? this.renderDialog() : div();
+    return d === "commit" ? this.renderCommit() : d === "push" ? this.renderPush() : d === "branch" ? this.renderBranch() : d ? this.renderDialog() : div();
   }
 
   // ---- The popup ----
@@ -210,6 +278,19 @@ export default class GitActions extends View {
     const p = props();
     this.error = null;
     this.handle = cx.focus_handle();
+    if (p.dialog === "push") {
+      // Shows shared PUSH; the seconds tick here.
+      cx.timer.every(1000, (cx) => cx.notify());
+      this.handle.focus();
+      return;
+    }
+    if (p.dialog === "branch") {
+      this.name = InputState.new({ placeholder: "New branch name" });
+      this.name.on("submit", (_e, cx) => this.makeBranch(cx));
+      this.name.focus();
+      cx.timer.after(600, () => this.name.focus());
+      return;
+    }
     if (p.dialog === "commit") {
       // Enter commits, Shift-Enter starts a new line (as gitview's box did).
       this.message = TextareaState.new({ placeholder: "Commit message", rows: 3 });
@@ -230,6 +311,20 @@ export default class GitActions extends View {
   key(e, cx) {
     const p = props();
     const commit = p.dialog === "commit";
+    if (p.dialog === "push") {
+      // Esc hides it (the push goes on); ↩ closes it once it's done.
+      const s = shared(PUSH);
+      if (e.key !== "escape" && !(e.key === "enter" && s?.id === p.id && s.done)) return;
+      closeOverlay(p.overlay);
+      return cx.stop_propagation();
+    }
+    if (p.dialog === "branch") {
+      // Plain ↩ is the input's own submit (it reaches here too: once is enough).
+      if (e.key === "escape") closeOverlay(p.overlay);
+      else if (e.key === "enter" && e.modifiers?.platform) this.commitAnyway(cx);
+      else return;
+      return cx.stop_propagation();
+    }
     if (e.key === "escape") closeOverlay(p.overlay);
     else if (e.key === "enter" && e.modifiers?.platform) commit ? this.doCommit(cx) : this.create(cx);
     else if (!commit && e.key === "d" && e.modifiers?.platform) {
@@ -237,6 +332,38 @@ export default class GitActions extends View {
       cx.notify();
     } else if (!commit && e.key === "tab") (e.modifiers?.shift ? this.title : this.body).focus();
     else return;
+    cx.stop_propagation();
+  }
+
+  // `git checkout -b <name>` (the uncommitted changes come along), then
+  // the commit popup on the new branch.
+  makeBranch(cx) {
+    const p = props();
+    const name = this.name.value().trim().replace(/\s+/g, "-");
+    if (!name) {
+      this.error = "A branch name is needed";
+      return cx.notify();
+    }
+    this.error = null;
+    this.act("make the branch", async () => {
+      try {
+        await git(["check-ref-format", "--branch", name], p.cwd).catch(() => { throw new Error(`${name} isn't a valid branch name`); });
+        await git(["checkout", "-b", name], p.cwd);
+        notify({ title: `On ${name}`, body: `branched from ${p.branch}`, level: "success", timeout: 3000 });
+        refreshGitview();
+        closeOverlay(p.overlay);
+        openOverlay({ mod: "git-actions", kind: "dialog", width: 560, props: { dialog: "commit", cwd: p.cwd, branch: name, staged: p.staged, all: p.all, push: p.push } });
+      } catch (e) {
+        this.error = String(e?.message ?? e); // the name stays in the box
+      }
+    }, cx);
+  }
+
+  // ⌘↩: the commit popup on the protected branch after all.
+  commitAnyway(cx) {
+    const p = props();
+    closeOverlay(p.overlay);
+    openOverlay({ mod: "git-actions", kind: "dialog", width: 560, props: { dialog: "commit", cwd: p.cwd, branch: p.branch, staged: p.staged, all: p.all, push: p.push } });
     cx.stop_propagation();
   }
 
@@ -250,9 +377,12 @@ export default class GitActions extends View {
     this.error = null;
     this.act("commit", async () => {
       try {
-        const out = await commit(p.cwd, p.staged, message);
+        const out = await commit(p.cwd, p.staged, message, Boolean(p.all));
         notify({ title: "Committed", body: out || firstLine(message), level: "success" });
+        refreshGitview();
         closeOverlay(p.overlay);
+        // Ship: the push, in the root copy (this one is closing).
+        if (p.push) run("git-actions.push");
       } catch (e) {
         this.error = String(e?.message ?? e); // the message stays in the box
       }
@@ -267,7 +397,13 @@ export default class GitActions extends View {
       return cx.notify();
     }
     this.act("create the pull request", async () => {
-      if (!p.upstream || p.ahead > 0) await push({ cwd: p.cwd, branch: p.branch, upstream: p.upstream, ahead: p.ahead, behind: p.behind });
+      if (!p.upstream || p.ahead > 0) {
+        this.phase = "Pushing";
+        cx.notify();
+        await push({ cwd: p.cwd, branch: p.branch, upstream: p.upstream, ahead: p.ahead, behind: p.behind });
+      }
+      this.phase = "Creating";
+      cx.notify();
       const out = await gh(["pr", "create", "--head", p.branch, "--base", p.base, "--title", title, "--body", this.body.value(), ...(this.draft ? ["--draft"] : [])], p.cwd, 120000);
       const url = out.split("\n").find((l) => /\/pull\/\d+/.test(l)) ?? "";
       const number = Number(/\/pull\/(\d+)/.exec(url)?.[1]);
@@ -296,7 +432,7 @@ export default class GitActions extends View {
         h_flex()
           .items_center()
           .gap(8)
-          .child(div().flex_1().text_size(15).font_semibold().child(p.staged ? "Commit staged changes" : "Commit all changes"))
+          .child(div().flex_1().text_size(15).font_semibold().child(`${p.staged && !p.all ? "Commit staged changes" : "Commit all changes"}${p.push ? ", then push" : ""}`))
           .child(div().text_size(11.5).text_color(t.dim).child(p.branch ?? "")),
       )
       .child(field(t, Textarea.new(this.message).w_full().py(6)))
@@ -307,11 +443,44 @@ export default class GitActions extends View {
           .gap(14)
           .items_center()
           .text_size(11)
-          .child(keycap(t, "↩", "commit"))
+          .child(keycap(t, "↩", p.push ? "commit & push" : "commit"))
           .child(keycap(t, "⇧↩", "new line"))
           .child(keycap(t, "esc", "cancel"))
           .child(div().flex_1())
           .when(busy, (el) => el.child(h_flex().items_center().gap(6).text_color(t.dim).child(svg("mods/workspace-chrome/spinner.svg").size(13).spin(900)).child("Committing…"))),
+      );
+  }
+
+  // "You're on main": a name for the branch the commit should go on.
+  renderBranch() {
+    const t = theme();
+    const p = props() ?? {};
+    const busy = Boolean(this.busy);
+    return v_flex()
+      .id("ga-branch")
+      .track_focus(this.handle)
+      .on_key_down((e, cx) => this.key(e, cx))
+      .w_full()
+      .min_h(0)
+      .p(18)
+      .gap(8)
+      .bg(t.popover)
+      .text_color(t.foreground)
+      .child(div().text_size(15).font_semibold().child(`You're on ${p.branch}`))
+      .child(div().text_size(12.5).text_color(t.muted).child(`Commits don't go on ${p.branch} here. Name a new branch for them; the changes come along.`))
+      .child(field(t, Input.new(this.name).h(34)))
+      .when(Boolean(this.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(this.error)))
+      .child(
+        h_flex()
+          .pt(4)
+          .gap(14)
+          .items_center()
+          .text_size(11)
+          .child(keycap(t, "↩", p.push ? "new branch, then commit & push" : "new branch, then commit"))
+          .child(keycap(t, "⌘↩", `commit on ${p.branch} anyway`))
+          .child(keycap(t, "esc", "cancel"))
+          .child(div().flex_1())
+          .when(busy, (el) => el.child(h_flex().items_center().gap(6).text_color(t.dim).child(svg("mods/workspace-chrome/spinner.svg").size(13).spin(900)).child("Branching…"))),
       );
   }
 
@@ -352,7 +521,51 @@ export default class GitActions extends View {
           .child(key("⇥", "description"))
           .child(key("esc", "cancel"))
           .child(div().flex_1())
-          .when(busy, (el) => el.child(h_flex().items_center().gap(6).text_color(t.dim).child(svg("mods/workspace-chrome/spinner.svg").size(13).spin(900)).child("Creating…"))),
+          .when(busy, (el) => el.child(h_flex().items_center().gap(6).text_color(t.dim).child(svg("mods/workspace-chrome/spinner.svg").size(13).spin(900)).child(`${this.phase ?? "Creating"}…`))),
+      );
+  }
+
+  // The push on its way: a spinner, the branch, where it goes and the
+  // seconds so far; after a failure its message, until Esc.
+  renderPush() {
+    const t = theme();
+    const p = props() ?? {};
+    const s = shared(PUSH);
+    const mine = s && s.id === p.id ? s : null;
+    const failed = mine?.error ?? null;
+    const running = Boolean(mine) && !mine.done;
+    const secs = mine ? Math.max(0, Math.round((Date.now() - mine.at) / 1000)) : 0;
+    const to = !mine ? "" : mine.upstream ? `${mine.ahead} commit${mine.ahead === 1 ? "" : "s"} → ${mine.upstream}` : `${mine.branch} → origin, setting the upstream`;
+    const title = !mine ? "Push" : failed ? `Couldn't push ${mine.branch}` : running ? `Pushing ${mine.branch}…` : `Pushed ${mine.branch} ✓`;
+    const done = Boolean(mine) && mine.done;
+    return v_flex()
+      .id("ga-push")
+      .track_focus(this.handle)
+      .on_key_down((e, cx) => this.key(e, cx))
+      .w_full()
+      .min_h(0)
+      .p(18)
+      .gap(8)
+      .bg(t.popover)
+      .text_color(t.foreground)
+      .child(
+        h_flex()
+          .items_center()
+          .gap(8)
+          .when(running, (el) => el.child(h_flex().flex_none().text_color(t.accent).child(svg("mods/workspace-chrome/spinner.svg").size(14).spin(900))))
+          .child(div().flex_1().text_size(15).font_semibold().when(done && !failed, (el) => el.text_color(t.done ?? t.ansi2)).child(title))
+          .when(running, (el) => el.child(div().text_size(11.5).text_color(t.dim).child(`${secs} s`))),
+      )
+      .child(div().text_size(12.5).text_color(t.muted).child(to))
+      .when(Boolean(failed), (el) => el.child(div().text_size(12).text_color(t.blocked).child(failed)))
+      .child(
+        h_flex()
+          .pt(4)
+          .gap(14)
+          .items_center()
+          .text_size(11)
+          .when(done, (el) => el.child(keycap(t, "↩", "close")))
+          .child(keycap(t, "esc", running ? "hide (the push goes on)" : "close")),
       );
   }
 }

@@ -124,7 +124,7 @@
                   },
                   "radius": 3,
                   "gap": 2,
-                  "lone": true
+                  "lone": false
                 }
               }
             },
@@ -277,8 +277,8 @@
   ],
   "titlebar": "none",
   "traffic_lights": [
-    12,
-    16
+    -200,
+    -200
   ],
   "terminal_menu": "chat-menu"
 }

@@ -71,7 +71,7 @@
   "mod:gitview": {
     "shift-p": "git-actions.push",
     "o": "git-actions.pr",
-    "space": "gitview.button:stage:section:changes",
+    "space": "git-actions.ship",
     "i": "git-actions.ignore",
     "shift-i": "git-actions.exclude",
     "c": "git-actions.commit"
@@ -82,6 +82,12 @@
     "i": "git-actions.ignore",
     "shift-i": "git-actions.exclude",
     "c": "git-actions.commit"
+  },
+  "mod:kube": {
+    "up": "kube.key:up",
+    "down": "kube.key:down",
+    "enter": "kube.key:enter",
+    "escape": "kube.key:escape"
   },
   "mod:thanos": {
     "cmd-s": "thanos.link",

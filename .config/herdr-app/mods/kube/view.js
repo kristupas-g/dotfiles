@@ -102,7 +102,7 @@ export class KubeView {
     this.filter.on("blur", (_e, cx) => { this.typing = false; cx.notify(); });
     this.pick = InputState.new({ placeholder: "" });
     this.pick.on("change", (_e, cx) => { this.pickText = this.pick.value(); this.pickAt = 0; cx.notify(); });
-    this.pick.on("submit", (_e, cx) => this.choose(cx));
+    this.pick.on("submit", (_e, cx) => { if (this.lastKey?.k === "enter" && Date.now() - this.lastKey.at < 60) return; this.lastKey = { k: "enter", at: Date.now() }; this.choose(cx); });
     this.handle = cx.focus_handle();
     this.scroll = ScrollHandle.new();
     this.pickScroll = ScrollHandle.new();
@@ -113,6 +113,7 @@ export class KubeView {
         const c = await nextCommand();
         if (c === "focus") this.handle.focus();
         else if (c === "refresh") this.refresh(cx, true);
+        else if (c.startsWith("key:")) this.key({ key: c.slice(4), modifiers: {} }, cx);
         cx.notify();
       }
     });
@@ -745,10 +746,19 @@ export class KubeView {
 
   // ---- keys ----
 
+  // Keys arrive two ways: as events on the root, and as the `kube.key:<name>`
+  // commands keys.json binds for ↑ ↓ ↵ Esc (an Input keeps those from the
+  // handlers, so the picker and the filter box would never see them; a bound
+  // key fires even while a box has the keyboard). A press that comes both
+  // ways counts once.
   key(e, cx) {
     const k = e.key;
     const m = e.modifiers ?? {};
     if (m.platform || m.alt) return;
+    const now = Date.now();
+    if (this.lastKey && this.lastKey.k === k && now - this.lastKey.at < 60) return;
+    this.lastKey = { k, at: now };
+    if (!cx.stop_propagation) cx.stop_propagation = () => {};
     if (this.picker) {
       const n = this.pickItems().length;
       if (k === "escape") this.closePicker(cx);
@@ -1363,12 +1373,14 @@ export class KubeView {
         .gap(8)
         .items_center()
         .rounded(6)
-        .bg(sel ? t.selected : t.popover)
+        .border_1()
+        .border_color(sel ? t.accent : t.popover)
+        .bg(sel ? t.hover : t.popover)
         .cursor_pointer()
-        .hover((s) => s.bg(sel ? t.selected : t.hover))
+        .hover((s) => s.bg(t.hover))
         .on_click((_e, cx) => { this.pickAt = i; this.choose(cx); })
         .when(Boolean(it.digit), (el) => el.child(div().w(12).flex_none().text_size(11).text_color(t.accent).child(it.digit)))
-        .child(div().flex_none().text_size(12.5).font_medium().text_color(t.foreground).child(it.label))
+        .child(div().flex_none().text_size(12.5).font_medium().text_color(sel ? t.accent : t.foreground).child(it.label))
         .when(Boolean(c) && isProd(c), (el) => el.child(this.chip(t, "prod", "blocked")))
         .when(Boolean(c?.namespace), (el) => el.child(div().text_size(11).text_color(t.dim).child(c.namespace)))
         .when(Boolean(it.aliases?.length), (el) => el.child(div().flex_none().text_size(11).text_color(t.accent).child(it.aliases.join(" "))))

@@ -1,39 +1,33 @@
-// space-tabs: every space gets the same tabs, in this order: a Claude Code chat
-// (herdr-chat), nvim with a shell under it, and gitview's diff view. Herdr's
-// own first tab of a new space is closed when it's just a shell; tabs an existing
-// space already has stay, after these. Each step runs once per space (ids
-// kept in shared "space-tabs.seeded" and "space-tabs.nvim-shell-2"), so a tab or
-// pane closed later stays closed. Runs as an empty floating block in the layout;
-// draws nothing. Spaces on other machines are skipped.
-//
-// Tabs open in their final order, so nothing is moved afterwards, and the
-// starter shell goes as soon as the first tab is there. gitview-tab builds its
-// file list in the background and then focuses it, which shows its tab: the
-// claude tab is selected once that has happened, not before.
+// space-tabs: every space starts with a Claude Code chat tab (herdr-chat), and
+// nothing else: nvim comes with cmd-e and gitview with cmd-g, when wanted.
+// Herdr's own first tab of a new space is closed when it's just a shell; tabs
+// an existing space already has stay, after the chat. Seeding runs once per
+// space (ids kept in shared "space-tabs.seeded"), so a tab closed later stays
+// closed. Runs as an empty floating block in the layout; draws nothing. Spaces
+// on other machines are skipped.
 //
 // `space-tabs.nvim` (cmd-e in keys.json) shows the nvim tab of the shown space,
-// with the keyboard in nvim; when it was closed, it is opened again as at
-// seeding (nvim with the shell under it, before gitview). Pressed on the nvim
-// tab, it goes back to the tab shown before it (the loop below remembers the
-// last shown tab that isn't nvim, per space).
+// with the keyboard in nvim; when there is none, it opens one (`nvim .` with a
+// shell pane under it at 25 % height, before gitview's tab when that is open,
+// else second). Pressed on the nvim tab, it goes back to the tab shown before
+// it (the loop below remembers the last shown tab that isn't nvim, per space).
 
 import { View, div } from "gpui-kit";
-import { exec, focused, machines, nextCommand, notify, panes, run, setShared, shared, spaces } from "herdr";
+import { exec, machines, nextCommand, notify, panes, run, setShared, shared, spaces } from "herdr";
 import { randomBytes } from "crypto";
 
 const SEEDED = "space-tabs.seeded";
-const NVIM_SHELL = "space-tabs.nvim-shell-2";
 // The shell's share of the nvim tab's height.
 const SHELL_WEIGHT = 0.25;
 // How often new spaces are looked for.
 const POLL = 200;
 
-// name: the tab's name, how an existing one is recognised.
+// name: the tab's name, how an existing one is recognised. Only the chat is
+// seeded; nvim is here for cmd-e.
 const TABS = [
   { name: "claude", open: (s) => run("tab.new", { name: "claude", space: s.id, mod: "chat", props: { chat: `c-${randomBytes(4).toString("hex")}`, provider: "claude", ...(s.folder ? { cwd: s.folder } : {}) } }) },
-  { name: "nvim", open: (s) => run("tab.new", { name: "nvim", space: s.id, ...(s.folder ? { folder: s.folder } : {}), argv: ["nvim", "."] }) },
-  { name: "gitview", open: openGitview },
 ];
+const NVIM = { name: "nvim", open: (s) => run("tab.new", { name: "nvim", space: s.id, ...(s.folder ? { folder: s.folder } : {}), argv: ["nvim", "."] }) };
 
 const space = (id) => spaces().find((s) => s.id === id);
 const tabNamed = (id, name) => space(id)?.tabs.find((t) => t.name === name) ?? null;
@@ -45,15 +39,6 @@ async function until(cx, test, ms = 10000) {
     await cx.sleep(50);
   }
   return null;
-}
-
-// gitview-tab opens its tab for the shown space, so show it first. The tab
-// appears at once; its file list, and the focus that shows the tab, come
-// later (settle waits for those).
-async function openGitview(s, cx) {
-  run("space.select", { id: s.id });
-  await until(cx, () => spaces().find((x) => x.active)?.id === s.id, 3000);
-  run("mod.open", { name: "gitview-tab" });
 }
 
 // herdr-core's API (`hc connect`, one JSON-RPC request per run).
@@ -107,16 +92,9 @@ function closeStarter(id) {
   if (inStarter.length === 1 && inStarter[0].program?.shell && !inStarter[0].status) run("tab.close", { id, confirmed: true });
 }
 
-// gitview-tab ends by focusing its file list, which shows its tab: wait for
-// that, then show the first tab, once.
+// The first tab shows once seeding is done: hold it until it has stayed
+// shown for a second (a tab opened by another mod can take the focus).
 async function settle(id, cx) {
-  const gv = tabNamed(id, "gitview");
-  if (gv) {
-    const a = await until(cx, () => tabNamed(id, "gitview")?.panes >= 2, 15000);
-    const b = await until(cx, () => focused()?.tab === gv.id, 2000);
-  }
-  // gitview keeps focusing its panes for a moment after that: hold the first
-  // tab until it has stayed shown for a second.
   for (let held = 0, i = 0; held < 1000 && i < 60; i++) {
     const first = tabNamed(id, TABS[0].name);
     if (!first) return;
@@ -168,11 +146,10 @@ async function showNvim(cx) {
     else run("tab.prev");
     return;
   }
-  const spec = TABS.find((t) => t.name === "nvim");
   if (!tabNamed(id, "nvim")) {
-    await spec.open(s, cx);
+    await NVIM.open(s, cx);
     if (!(await until(cx, () => tabNamed(id, "nvim")))) return notify({ title: "space-tabs", body: `nvim didn't open in ${s.name ?? id}`, level: "warning" });
-    // Where seeding put it: before gitview; else second (the claude tab is
+    // Before gitview's tab when it's open; else second (the claude tab is
     // first, and auto-title may have renamed it), or first in an empty space.
     const index = tabNamed(id, "gitview")?.index ?? Math.min(2, space(id)?.tabs.length ?? 1);
     if (tabNamed(id, "nvim").index !== index) {
@@ -224,13 +201,12 @@ export default class SpaceTabs extends View {
         }
         const shown = spaces().find((s) => s.active)?.id;
         const seeded = await once(SEEDED, seed, cx);
-        const shelled = await once(NVIM_SHELL, nvimShell, cx);
         // Setting up spaces that already existed shouldn't leave you somewhere else.
         // A space seeded just now is new and stays shown: it may not have been
         // marked active yet when this iteration started.
         const now = spaces().find((s) => s.active)?.id;
         const fresh = seeded.includes(shown) || seeded.includes(now);
-        if ((seeded.length || shelled.length) && !fresh && shown && space(shown) && shown !== now) run("space.select", { id: shown });
+        if (seeded.length && !fresh && shown && space(shown) && shown !== now) run("space.select", { id: shown });
       }
     });
   }

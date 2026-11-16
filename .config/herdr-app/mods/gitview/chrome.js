@@ -89,7 +89,22 @@ function bar(t) {
   return h_flex().h(HEADER_H).flex_none().pl(14).pr(8).gap(8).items_center().border_b(1).border_color(t.border);
 }
 
-// The changed files: {status, files, notes, loading, wide, tree, onNotes, onTree, onLog}.
+// local patch: unpushed (mods/git-actions/patch-gitview.sh, re-run after
+// reinstalling herdr-gitview): how the branch stands against its upstream
+// (main.js reads it beside each status), after its name: "↑N unpushed" in
+// the accent while commits wait to be pushed, "↓N behind", "no upstream"
+// for a branch never pushed; the arrows and counts alone in a narrow
+// panel. Nothing while it isn't known.
+function syncPills(t, sync, wide) {
+  if (!sync) return [];
+  const out = [];
+  if (!sync.upstream) out.push(pill(t, wide ? "no upstream" : "↑ none", { accent: true }));
+  if (sync.ahead > 0) out.push(pill(t, `↑${sync.ahead}${wide ? " unpushed" : ""}`, { accent: true }));
+  if (sync.behind > 0) out.push(pill(t, `↓${sync.behind}${wide ? " behind" : ""}`));
+  return out;
+}
+
+// The changed files: {status, files, notes, loading, wide, tree, onNotes, onTree, onLog, sync}.
 export function filesHeader(t, h) {
   const s = h.status;
   const what = !s ? "gitview" : s.scope === "branch" ? `vs ${s.base?.label ?? "base"}` : "uncommitted";
@@ -99,9 +114,11 @@ export function filesHeader(t, h) {
       h_flex()
         .flex_1()
         .min_w(0)
+        .overflow_hidden() // local patch: unpushed (the pills stay inside)
         .gap(4)
         .items_center()
-        .when(Boolean(s?.branch), (e) => e.child(icon("branch", 12, t.dim)).child(div().min_w(0).truncate().text_size(12).text_color(t.muted).child(s.branch))),
+        .when(Boolean(s?.branch), (e) => e.child(icon("branch", 12, t.dim)).child(div().min_w(0).truncate().text_size(12).text_color(t.muted).child(s.branch)))
+        .children(syncPills(t, s?.scope === "worktree" ? h.sync : null, h.wide)), // local patch: unpushed
     )
     .when(h.notes > 0, (e) => e.child(pill(t, `${h.notes} note${h.notes > 1 ? "s" : ""}`, { accent: true, id: "gitview-notes-pill", onPress: h.onNotes })))
     .children(lineCounts(t, h.add, h.del))
