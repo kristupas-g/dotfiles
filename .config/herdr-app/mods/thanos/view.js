@@ -15,6 +15,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Popup, ScrollHandle, VirtualListScrollHandle, Scrollbar, v_virtual_list } from "gpui-base";
 import { exec, focused, nextCommand, notify, panes, run, setShared, settings, shared, spaces, theme } from "herdr";
+import * as fs from "fs/promises";
 import * as T from "./thanos.js";
 import { chart, legend, drawable, MAX_DRAWN } from "./chart.js";
 
@@ -91,9 +92,13 @@ export class ThanosView {
 
   command(c, cx) {
     const p = this.panels[this.focusAt];
+    const arg = (name) => (c.startsWith(`${name}:`) ? c.slice(name.length + 1) : null);
     if (c === "focus") this.handle.focus();
     else if (c === "link") this.copyLink(cx);
     else if (c === "shot") this.shot(cx);
+    else if (arg("shot") !== null) this.shot(cx, arg("shot"));
+    else if (arg("add") !== null) this.addFromOutside(arg("add"), cx);
+    else if (arg("dump") !== null) this.dump(arg("dump"), cx);
     else if (c === "new") this.addPanel("", cx, true, this.focusAt);
     else if (c === "duplicate" && p) this.duplicate(p, cx);
     else if (c === "refresh") this.runAll(cx);
@@ -192,6 +197,49 @@ export class ThanosView {
     this.quietUntil = Date.now() + 100;
     p.input.set_value(expr);
     cx.notify();
+  }
+
+  // `thanos.add:<expr>` (the `thanos` CLI, an agent): a panel under the focused
+  // one with that query, run at once; the keyboard stays where it is.
+  addFromOutside(expr, cx) {
+    const q = expr.trim();
+    if (!q) return;
+    const empty = this.panels.find((x) => !x.expr.trim() && !x.ran);
+    let panel;
+    if (empty) { panel = empty; this.setExpr(panel, q, cx); this.focusAt = this.panels.indexOf(panel); }
+    else panel = this.addPanel(q, cx, false, this.focusAt), this.focusAt = this.panels.indexOf(panel);
+    this.run(panel, cx);
+    this.scroll.scroll_to_item(this.focusAt + (this.overlay ? 1 : 0));
+    notify({ title: "Query added", body: short(q, 80), level: "info", timeout: 2500 });
+  }
+
+  // `thanos.dump:<path>`: the panels and a summary of their results as JSON,
+  // for the `thanos tab` CLI, so an agent can read what the tab shows. The
+  // path must be under ~/.config/herdr-app: mods can't write elsewhere.
+  dump(path, cx) {
+    const w = this.window();
+    const stat = (pts) => {
+      if (!pts.length) return { count: 0 };
+      let min = Infinity, max = -Infinity, sum = 0;
+      for (const [, v] of pts) { if (v < min) min = v; if (v > max) max = v; sum += v; }
+      return { count: pts.length, first: pts[0][1], last: pts[pts.length - 1][1], min, max, avg: sum / pts.length, first_t: pts[0][0], last_t: pts[pts.length - 1][0] };
+    };
+    const out = {
+      url: T.BASE, range: this.range, step: w.step, start: w.start, end: w.end, normalise: this.norm, overlay: this.overlay,
+      panels: this.panels.map((p, i) => ({
+        index: i + 1, focused: i === this.focusAt, expr: p.expr, mode: p.mode, error: p.error, loading: p.loading,
+        ran: p.ran ? { start: p.ran.start, end: p.ran.end, step: p.ran.step, ms: p.ran.ms, type: p.ran.type } : null,
+        series_total: p.list.length, hidden: [...p.hidden],
+        series: p.list.slice(0, 200).map((s) => ({ name: s.name, metric: s.metric, ...stat(s.points) })),
+      })),
+    };
+    cx.spawn(async () => {
+      try {
+        await fs.writeFile(path, JSON.stringify(out, null, 2) + "\n");
+      } catch (e) {
+        notify({ title: "Couldn't write the dump", body: String(e?.message ?? e), level: "error", timeout: 5000 });
+      }
+    });
   }
 
   // ---- running ----
@@ -460,14 +508,14 @@ export class ThanosView {
   // The window's last frame (`herdr-app shot`), cropped to the focused panel
   // when the pointer has been over it (its window bounds come with mouse
   // moves), else to the tab, as a PNG on the clipboard.
-  shot(cx) {
+  shot(cx, out = null) {
     const p = this.panels[this.focusAt];
     const b = p?.bounds ?? this.rootBounds;
     const what = p?.bounds ? `panel ${this.focusAt + 1}` : this.rootBounds ? "the Thanos tab" : "the whole window";
     this.busy = "screenshot";
     cx.notify();
     cx.spawn(async (cx) => {
-      const file = `/tmp/herdr-thanos-${Date.now()}.png`;
+      const file = out || `/tmp/herdr-thanos-${Date.now()}.png`;
       try {
         const r = await exec("herdr-app", ["shot", file], { timeout: 15000 });
         if (r.code !== 0) throw new Error((r.stderr || r.stdout || "").trim() || `herdr-app shot exited ${r.code}`);
@@ -479,13 +527,17 @@ export class ThanosView {
           const c = await exec("sips", ["-c", String(Math.round(b.height * s)), String(Math.round(b.width * s)), "--cropOffset", String(Math.round(b.y * s)), String(Math.round(b.x * s)), file, "--out", file], { timeout: 10000 });
           if (c.code !== 0) throw new Error((c.stderr || "").trim() || "sips couldn't crop");
         }
-        const o = await exec("osascript", ["-e", `set the clipboard to (read (POSIX file "${file}") as «class PNGf»)`], { timeout: 10000 });
-        if (o.code !== 0) throw new Error((o.stderr || "").trim() || "osascript couldn't set the clipboard");
-        notify({ title: "Screenshot copied", body: `${what[0].toUpperCase()}${what.slice(1)}, as a PNG on the clipboard${b ? "" : ". Move the pointer over a panel first to crop to it"}`, level: "info", timeout: 4000 });
+        if (out) {
+          notify({ title: "Screenshot saved", body: `${what[0].toUpperCase()}${what.slice(1)} → ${out}`, level: "info", timeout: 3000 });
+        } else {
+          const o = await exec("osascript", ["-e", `set the clipboard to (read (POSIX file "${file}") as «class PNGf»)`], { timeout: 10000 });
+          if (o.code !== 0) throw new Error((o.stderr || "").trim() || "osascript couldn't set the clipboard");
+          notify({ title: "Screenshot copied", body: `${what[0].toUpperCase()}${what.slice(1)}, as a PNG on the clipboard${b ? "" : ". Move the pointer over a panel first to crop to it"}`, level: "info", timeout: 4000 });
+        }
       } catch (e) {
         notify({ title: "Couldn't take the screenshot", body: String(e?.message ?? e), level: "error", timeout: 6000 });
       }
-      exec("rm", ["-f", file]).catch(() => {});
+      if (!out) exec("rm", ["-f", file]).catch(() => {});
       this.busy = null;
       cx.notify();
     });

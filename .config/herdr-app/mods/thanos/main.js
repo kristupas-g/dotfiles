@@ -9,15 +9,24 @@
 // With props { role: "commands" } it draws nothing: the floating block that
 // takes `thanos.open`. The view copies take `thanos.link` (⌘S: a Thanos URL
 // to the clipboard), `thanos.shot` (⇧⌘S: a screenshot of the focused panel to
-// the clipboard), `thanos.run`, `thanos.new`, `thanos.duplicate`, `thanos.refresh`.
+// the clipboard, or `thanos.shot:<file>` to a file), `thanos.add:<expr>` (a panel
+// with that query, run), `thanos.dump:<file>` (the panels and their results as
+// JSON), `thanos.run`, `thanos.new`, `thanos.duplicate`, `thanos.refresh`.
+// `bin/thanos` wraps these and the API for shells and agents.
 
 import { View, div } from "gpui-kit";
-import { nextCommand, props, run, spaces } from "herdr";
+import { nextCommand, panes, props, run, spaces } from "herdr";
 import { ThanosView, TAB } from "./view.js";
 
 export function openTab(p = {}) {
   const sp = spaces().find((s) => s.active);
   run("tab.new", { name: TAB, ...(sp ? { space: sp.id } : {}), mod: "thanos", props: p });
+}
+
+/** Whether the shown space's shown tab holds a thanos pane. */
+function shownTab() {
+  const tab = spaces().find((s) => s.active)?.tabs.find((t) => t.active)?.id;
+  return Boolean(tab) && panes().some((p) => p.tab === tab && p.mod === "thanos");
 }
 
 export default class Thanos extends View {
@@ -27,6 +36,8 @@ export default class Thanos extends View {
         for (;;) {
           const c = await nextCommand();
           if (c === "open") openTab();
+          // `thanos.add:<expr>` with no Thanos tab shown: open one with it (a shown tab takes it itself).
+          else if (c.startsWith("add:") && !shownTab()) openTab({ query: c.slice(4) });
         }
       });
       return;

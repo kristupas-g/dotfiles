@@ -22,6 +22,10 @@ VS Code settings, keybindings, user tasks and the extension list are not in this
 
 `bin/gen-code-workspace [dir] [--days N] [--include NAME]` writes a multi-root `<dir>.code-workspace` listing the git repositories directly under `dir` (default `~/vinted`), optionally only those with git activity in the last N days; rerun it after cloning new repositories or to change the set. The GitHub Pull Requests extension needs a one-time GitHub sign-in from the Accounts menu.
 
+## Thanos
+
+`bin/thanos` queries Thanos from the shell and drives the Thanos tab in Herdr: `thanos query EXPR [--range 1h]`, `thanos names PREFIX`, `thanos show EXPR` (a panel in the tab), `thanos tab`, `thanos shot --out FILE`, `thanos link`. It needs the VPN and the Thanos URL as `url` in `~/.config/herdr-app/data/thanos/config.json`, which the tab writes as a template on first open. `thanos --help` has the rest.
+
 ## Shell
 
 `.zshrc` holds only the generic, public part of the shell setup. It sources `~/.zshrc.local` at the end for machine-specific aliases, PATH entries and secrets. Keep anything work-related or secret in `~/.zshrc.local`; it is not tracked.

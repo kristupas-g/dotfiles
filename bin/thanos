@@ -1,0 +1,374 @@
+#!/usr/bin/env python3
+"""Thanos from the shell, for people and agents: query the Prometheus API, and
+drive the Thanos tab in Herdr (show a query to the person, read what their tab
+shows, screenshot it, share a link).
+
+The Thanos URL is `url` in ~/.config/herdr-app/data/thanos/config.json (or
+$THANOS_URL). The VPN must be on. Commands that talk to the tab need Herdr
+running with a Thanos tab shown (`thanos show --new EXPR` opens one).
+"""
+import argparse
+import json
+import math
+import os
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+CONFIG = os.path.expanduser("~/.config/herdr-app/data/thanos/config.json")
+UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+STEPS = [15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 43200, 86400]
+
+
+def die(msg, code=1):
+    print(f"thanos: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def base_url():
+    url = os.environ.get("THANOS_URL", "").strip()
+    if not url:
+        try:
+            with open(CONFIG) as f:
+                url = str(json.load(f).get("url", "")).strip()
+        except (OSError, ValueError):
+            url = ""
+    if not url.startswith("http"):
+        die(f"no Thanos URL: set \"url\" in {CONFIG} (or $THANOS_URL)")
+    return url.rstrip("/")
+
+
+def seconds(rng):
+    rng = rng.strip()
+    if rng[-1:] in UNITS and rng[:-1].replace(".", "", 1).isdigit():
+        return int(float(rng[:-1]) * UNITS[rng[-1]])
+    die(f"not a duration: {rng!r} (try 30m, 1h, 3d)")
+
+
+def step_for(sec, points=300):
+    want = sec / points
+    return next((s for s in STEPS if s >= want), STEPS[-1])
+
+
+def api(path, **params):
+    query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+    url = f"{base_url()}{path}{'?' + query if query else ''}"
+    try:
+        with urllib.request.urlopen(url, timeout=120) as r:
+            body = json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.load(e)
+        except ValueError:
+            die(f"HTTP {e.code} from {path}")
+    except urllib.error.URLError as e:
+        die(f"Thanos didn't answer ({e.reason}): is the VPN on?")
+    if body.get("status") != "success":
+        die(f"{body.get('errorType', 'error')}: {body.get('error', '?')}")
+    return body["data"]
+
+
+def series_name(metric):
+    name = metric.get("__name__", "")
+    labels = ", ".join(f'{k}="{v}"' for k, v in metric.items() if k != "__name__")
+    return f"{name}{{{labels}}}" if labels or not name else name
+
+
+def fmt(v):
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "NaN"
+    a = abs(v)
+    if a == 0:
+        return "0"
+    for lim, suf in ((1e12, "T"), (1e9, "G"), (1e6, "M"), (1e3, "k")):
+        if a >= lim:
+            return f"{v / lim:.3g}{suf}"
+    if a >= 100:
+        return f"{v:.0f}"
+    if a >= 1:
+        return f"{v:.3g}"
+    if a >= 1e-3:
+        return f"{v * 1e3:.3g}m"
+    return f"{v:.2e}"
+
+
+def stats(points):
+    vals = [float(v) for _, v in points if v not in ("NaN", "+Inf", "-Inf")]
+    if not vals:
+        return None
+    return {"last": vals[-1], "min": min(vals), "max": max(vals), "avg": sum(vals) / len(vals), "count": len(vals)}
+
+
+def stamp(ts):
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+
+
+def share_url(exprs, rng, end, step):
+    parts = []
+    for i, expr in enumerate(exprs):
+        g = f"g{i}"
+        parts += [(f"{g}.expr", expr), (f"{g}.tab", "0"), (f"{g}.stacked", "0"), (f"{g}.show_exemplars", "0"),
+                  (f"{g}.range_input", rng), (f"{g}.end_input", stamp(end)), (f"{g}.moment_input", stamp(end)), (f"{g}.step_input", str(step))]
+    return f"{base_url()}/graph?{urllib.parse.urlencode(parts)}"
+
+
+# ---- Herdr ----
+
+def herdr(*args, check=True):
+    exe = shutil.which("herdr-app")
+    if not exe:
+        die("herdr-app isn't on PATH: is Herdr installed?")
+    r = subprocess.run([exe, *args], capture_output=True, text=True)
+    if check and r.returncode != 0:
+        die((r.stderr or r.stdout).strip() or f"herdr-app {' '.join(args)} failed")
+    return r.stdout
+
+
+def wait_for(path, timeout):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            time.sleep(0.2)
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def tab_dump():
+    # Mods may only write under ~/.config/herdr-app.
+    path = os.path.expanduser(f"~/.config/herdr-app/data/thanos/tab-{os.getpid()}.json")
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    herdr("do", f"thanos.dump:{path}")
+    if not wait_for(path, 6):
+        die("no Thanos tab is shown in Herdr (the shown space's shown tab). Open one: thanos show --new EXPR")
+    with open(path) as f:
+        data = json.load(f)
+    os.remove(path)
+    return data
+
+
+# ---- commands ----
+
+def cmd_query(a):
+    if a.range:
+        sec = seconds(a.range)
+        end = int(time.time())
+        step = a.step or step_for(sec)
+        data = api("/api/v1/query_range", query=a.expr, start=end - sec, end=end, step=step)
+    else:
+        data = api("/api/v1/query", query=a.expr, time=a.at)
+    if a.json:
+        json.dump(data, sys.stdout, indent=2)
+        print()
+        return
+    kind = data["resultType"]
+    if kind == "scalar" or kind == "string":
+        print(data["result"][1])
+        return
+    rows = []
+    for s in data["result"]:
+        name = series_name(s["metric"])
+        if kind == "vector":
+            rows.append((float(s["value"][1]) if s["value"][1] not in ("NaN", "+Inf", "-Inf") else float("nan"), name, None))
+        else:
+            st = stats(s["values"])
+            rows.append((st["last"] if st else float("nan"), name, st))
+    rows.sort(key=lambda r: (math.isnan(r[0]), -r[0] if not math.isnan(r[0]) else 0))
+    shown = rows if a.top <= 0 else rows[: a.top]
+    if kind == "matrix":
+        print(f"{'last':>10} {'min':>10} {'max':>10} {'avg':>10}  series   ({a.range}, step {step}s, {stamp(end - sec)} → {stamp(end)})")
+        for _, name, st in shown:
+            if st:
+                print(f"{fmt(st['last']):>10} {fmt(st['min']):>10} {fmt(st['max']):>10} {fmt(st['avg']):>10}  {name}")
+            else:
+                print(f"{'NaN':>10} {'':>10} {'':>10} {'':>10}  {name}")
+    else:
+        for v, name, _ in shown:
+            print(f"{fmt(v):>10}  {name}")
+    if len(rows) > len(shown):
+        print(f"… {len(rows) - len(shown)} more series (--top 0 shows all, --json for everything)", file=sys.stderr)
+    if not rows:
+        print("(empty result)", file=sys.stderr)
+
+
+def cmd_names(a):
+    pat = f'{{__name__=~"{".*" if a.contains else ""}{a.prefix}.*"}}'
+    for n in sorted(api("/api/v1/label/__name__/values", **{"match[]": pat})):
+        print(n)
+
+
+def cmd_labels(a):
+    for n in api("/api/v1/labels", **({"match[]": a.metric} if a.metric else {})):
+        if n != "__name__":
+            print(n)
+
+
+def cmd_values(a):
+    for v in api(f"/api/v1/label/{urllib.parse.quote(a.label, safe='')}/values", **({"match[]": a.metric} if a.metric else {})):
+        print(v)
+
+
+def cmd_show(a):
+    if a.new:
+        props = {"queries": a.exprs}
+        if a.range:
+            props["range"] = a.range
+        herdr("do", "tab.new", "--name", "thanos", "--mod", "thanos", "--props", json.dumps(props))
+        print(f"opened a Thanos tab with {len(a.exprs)} {'query' if len(a.exprs) == 1 else 'queries'}")
+        return
+    for expr in a.exprs:
+        herdr("do", f"thanos.add:{expr}")
+    print(f"added {len(a.exprs)} {'query' if len(a.exprs) == 1 else 'queries'} to the shown Thanos tab (a tab was opened if none was shown)")
+
+
+def cmd_tab(a):
+    data = tab_dump()
+    if a.out:
+        with open(a.out, "w") as f:
+            json.dump(data, f, indent=2)
+        print(a.out)
+        return
+    if a.json:
+        json.dump(data, sys.stdout, indent=2)
+        print()
+        return
+    print(f"range {data['range']} · step {data['step']}s · {stamp(data['start'])} → {stamp(data['end'])}{' · normalised' if data.get('normalise') else ''}{' · overlay' if data.get('overlay') else ''}")
+    for p in data["panels"]:
+        mark = "*" if p.get("focused") else " "
+        head = f"{mark} panel {p['index']} [{p['mode']}] {p['expr'] or '(empty)'}"
+        if p.get("error"):
+            print(f"{head}\n    error: {p['error']}")
+            continue
+        if not p.get("ran"):
+            print(f"{head}\n    not run yet")
+            continue
+        print(f"{head}\n    {p['series_total']} series · {p['ran']['ms'] / 1000:.1f} s{' · hidden: ' + ', '.join(p['hidden']) if p.get('hidden') else ''}")
+        rows = sorted(p["series"], key=lambda s: -(s.get("last") if s.get("last") is not None else -math.inf))
+        for s in rows[: a.top] if a.top > 0 else rows:
+            if s.get("count"):
+                print(f"    {fmt(s['last']):>10} {fmt(s['min']):>10} {fmt(s['max']):>10} {fmt(s['avg']):>10}  {s['name']}")
+            else:
+                print(f"    {'(no data)':>10}  {s['name']}")
+        if a.top > 0 and len(rows) > a.top:
+            print(f"    … {len(rows) - a.top} more (--top 0 shows all)")
+    print("(columns: last min max avg)")
+
+
+def cmd_shot(a):
+    out = os.path.abspath(a.out or f"/tmp/thanos-shot-{int(time.time())}.png")
+    try:
+        os.remove(out)
+    except OSError:
+        pass
+    herdr("do", f"thanos.shot:{out}")
+    if not wait_for(out, 25):
+        die("no screenshot appeared: is a Thanos tab shown in Herdr? (thanos show --new EXPR opens one)")
+    print(out)
+
+
+def cmd_link(a):
+    exprs = a.exprs
+    rng = a.range
+    end = int(time.time())
+    step = None
+    if not exprs:
+        data = tab_dump()
+        exprs = [p["expr"] for p in data["panels"] if p["expr"].strip()]
+        rng = rng or data["range"]
+        step = data["step"]
+        end = data["end"]
+        if not exprs:
+            die("the shown Thanos tab has no queries")
+    rng = rng or "1h"
+    sec = seconds(rng)
+    print(share_url(exprs, rng, end, step or step_for(sec)))
+
+
+def cmd_url(_a):
+    print(base_url())
+
+
+EPILOG = """\
+examples:
+  thanos query 'sum(rate(http_requests_total[5m]))'          one number per series, now
+  thanos query 'up{job="node-exporter"}' --range 1h          last/min/max/avg per series over the range
+  thanos query '...' --json                                  the API's data, for scripts
+  thanos names http_                                         metric names by prefix (--contains for anywhere)
+  thanos labels node_cpu_seconds_total                       the metric's label names
+  thanos values mode node_cpu_seconds_total                  a label's values (for that metric)
+  thanos show 'sum(rate(x[5m]))' 'sum(rate(y[5m]))'          put queries in the person's Thanos tab in Herdr
+  thanos show --new --range 3h '...'                         in a new tab
+  thanos tab                                                 what the shown tab has: queries and result summaries
+  thanos shot --out /tmp/cpu.png                             a PNG of the focused panel, to look at
+  thanos link                                                a Thanos URL for the shown tab's queries
+
+for agents: `query` reads numbers (prefer it over screenshots); `show` puts a
+query in front of the person, next to what they are looking at; `tab` reads
+what they see; `shot` gives a picture when the shape of a graph matters.
+"""
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="thanos", description=__doc__, epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    q = sub.add_parser("query", help="run a PromQL query (instant, or --range for a range)")
+    q.add_argument("expr")
+    q.add_argument("--range", help="a range query over the last duration (1h, 3d) instead of an instant one")
+    q.add_argument("--step", type=int, help="range step in seconds (default: about 300 points)")
+    q.add_argument("--at", help="instant query time (unix seconds or RFC 3339; default now)")
+    q.add_argument("--top", type=int, default=50, help="series to print, by value (default 50; 0 for all)")
+    q.add_argument("--json", action="store_true", help="print the API's data as JSON")
+    q.set_defaults(fn=cmd_query)
+
+    n = sub.add_parser("names", help="metric names starting with a prefix")
+    n.add_argument("prefix")
+    n.add_argument("--contains", action="store_true", help="names containing it anywhere")
+    n.set_defaults(fn=cmd_names)
+
+    l = sub.add_parser("labels", help="label names, of a metric when given")
+    l.add_argument("metric", nargs="?")
+    l.set_defaults(fn=cmd_labels)
+
+    v = sub.add_parser("values", help="a label's values, of a metric when given")
+    v.add_argument("label")
+    v.add_argument("metric", nargs="?")
+    v.set_defaults(fn=cmd_values)
+
+    s = sub.add_parser("show", help="put queries in the Thanos tab in Herdr (one panel each)")
+    s.add_argument("exprs", nargs="+", metavar="EXPR")
+    s.add_argument("--new", action="store_true", help="open a new tab for them")
+    s.add_argument("--range", help="the new tab's range (with --new)")
+    s.set_defaults(fn=cmd_show)
+
+    t = sub.add_parser("tab", help="what the shown Thanos tab has: panels, queries, result summaries")
+    t.add_argument("--json", action="store_true", help="as JSON")
+    t.add_argument("--out", help="write the JSON to a file")
+    t.add_argument("--top", type=int, default=10, help="series per panel to print (default 10; 0 for all)")
+    t.set_defaults(fn=cmd_tab)
+
+    sh = sub.add_parser("shot", help="save a PNG of the focused panel of the shown Thanos tab")
+    sh.add_argument("--out", help="the file (default /tmp/thanos-shot-<time>.png)")
+    sh.set_defaults(fn=cmd_shot)
+
+    lk = sub.add_parser("link", help="a Thanos graph URL for queries (or the shown tab's)")
+    lk.add_argument("exprs", nargs="*", metavar="EXPR")
+    lk.add_argument("--range", help="the range (default 1h, or the tab's)")
+    lk.set_defaults(fn=cmd_link)
+
+    u = sub.add_parser("url", help="print the Thanos URL in use")
+    u.set_defaults(fn=cmd_url)
+
+    a = ap.parse_args()
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()
