@@ -224,12 +224,24 @@ export function stamp(ts) {
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 }
 
-/** Thanos's graph page with one `g<n>` per panel, the form its UI reads back. */
-export function shareUrl(panels, range, end, step) {
+/** The same in UTC: what Thanos's graph page reads `end_input` as. */
+export function stampUTC(ts) {
+  const d = new Date(ts * 1000);
+  return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}:${two(d.getUTCSeconds())}`;
+}
+
+/**
+ * Thanos's graph page with one `g<n>` per panel, the form its UI reads back.
+ * A window that ends now carries no end time (the page uses now); a fixed one
+ * carries it in UTC, which is how the page parses `end_input`.
+ */
+export function shareUrl(panels, range, end, step, fixed = false) {
   const parts = [];
   panels.forEach((p, i) => {
     const g = `g${i}`;
-    parts.push([`${g}.expr`, p.expr], [`${g}.tab`, p.mode === "table" ? "1" : "0"], [`${g}.stacked`, "0"], [`${g}.show_exemplars`, "0"], [`${g}.range_input`, range], [`${g}.end_input`, stamp(end)], [`${g}.moment_input`, stamp(end)], [`${g}.step_input`, String(step)]);
+    parts.push([`${g}.expr`, p.expr], [`${g}.tab`, p.mode === "table" ? "1" : "0"], [`${g}.stacked`, "0"], [`${g}.show_exemplars`, "0"], [`${g}.range_input`, range]);
+    if (fixed) parts.push([`${g}.end_input`, stampUTC(end)], [`${g}.moment_input`, stampUTC(end)]);
+    parts.push([`${g}.step_input`, String(step)]);
   });
   return `${BASE}/graph?${parts.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&")}`;
 }

@@ -107,12 +107,19 @@ def stamp(ts):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
 
 
-def share_url(exprs, rng, end, step):
+def stamp_utc(ts):
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(ts))
+
+
+def share_url(exprs, rng, end, step, fixed=False):
+    # Thanos's graph page reads end_input as UTC; a window ending now carries none.
     parts = []
     for i, expr in enumerate(exprs):
         g = f"g{i}"
-        parts += [(f"{g}.expr", expr), (f"{g}.tab", "0"), (f"{g}.stacked", "0"), (f"{g}.show_exemplars", "0"),
-                  (f"{g}.range_input", rng), (f"{g}.end_input", stamp(end)), (f"{g}.moment_input", stamp(end)), (f"{g}.step_input", str(step))]
+        parts += [(f"{g}.expr", expr), (f"{g}.tab", "0"), (f"{g}.stacked", "0"), (f"{g}.show_exemplars", "0"), (f"{g}.range_input", rng)]
+        if fixed:
+            parts += [(f"{g}.end_input", stamp_utc(end)), (f"{g}.moment_input", stamp_utc(end))]
+        parts.append((f"{g}.step_input", str(step)))
     return f"{base_url()}/graph?{urllib.parse.urlencode(parts)}"
 
 
@@ -278,17 +285,19 @@ def cmd_link(a):
     rng = a.range
     end = int(time.time())
     step = None
+    fixed = False
     if not exprs:
         data = tab_dump()
         exprs = [p["expr"] for p in data["panels"] if p["expr"].strip()]
         rng = rng or data["range"]
         step = data["step"]
         end = data["end"]
+        fixed = bool(data.get("fixed"))
         if not exprs:
             die("the shown Thanos tab has no queries")
     rng = rng or "1h"
     sec = seconds(rng)
-    print(share_url(exprs, rng, end, step or step_for(sec)))
+    print(share_url(exprs, rng, end, step or step_for(sec), fixed))
 
 
 def cmd_url(_a):

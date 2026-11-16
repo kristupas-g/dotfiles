@@ -151,13 +151,32 @@ export function chart(t, { id, series, start, end, step, hoverT, norm, height, w
 }
 
 /** The series rows under a chart: a swatch, the name and the value at the crosshair (or the last). Click hides or shows one. */
-export function legend(t, { id, series, hidden, hoverT, step, onToggle, onOnly }) {
+export function legend(t, { id, series, hidden, hoverT, step, onToggle, onOnly, onAll = null, onNone = null }) {
+  const small = (key, label, tip, fn) => div()
+    .id(`${id}-leg-${key}`)
+    .px(5)
+    .h(16)
+    .rounded(3)
+    .bg(t.raised)
+    .text_size(10)
+    .text_color(t.muted)
+    .cursor_pointer()
+    .hover((st) => st.bg(t.hover).text_color(t.foreground))
+    .tooltip(tip)
+    .on_click((_e, cx) => fn(cx))
+    .flex()
+    .items_center()
+    .child(label);
   return h_flex()
     .flex_wrap()
     .gap_x(14)
     .gap_y(3)
     .pl(54)
     .text_size(11)
+    .items_center()
+    .when(Boolean(onAll && onNone) && series.length > 1, (el) => el.child(h_flex().gap(4).items_center()
+      .child(small("all", "all", "Show every series", onAll))
+      .child(small("none", "none", "Hide every series, then click the ones to show", onNone))))
     .children(series.map((s, i) => {
       const off = hidden.has(s.name);
       const p = hoverT !== null ? nearest(s.points, hoverT) : s.points[s.points.length - 1];

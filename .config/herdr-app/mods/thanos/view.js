@@ -591,7 +591,7 @@ export class ThanosView {
     cx.spawn(async () => {
       await this.ready;
       if (!T.BASE) return notify({ title: "No Thanos URL", body: this.configErr ?? "", level: "warning", timeout: 5000 });
-      const url = T.shareUrl(list, this.span ? T.duration(w.end - w.start) : this.range, w.end, w.step);
+      const url = T.shareUrl(list, this.span ? T.duration(w.end - w.start) : this.range, w.end, w.step, Boolean(this.span));
       const r = await exec("/bin/sh", ["-c", 'printf "%s" "$1" | pbcopy', "sh", url], { timeout: 5000 }).catch((e) => ({ code: 1, stderr: String(e) }));
       if (r.code === 0) notify({ title: "Thanos link copied", body: `${list.length} ${list.length === 1 ? "query" : "queries"}, ${this.rangeLabel()}`, level: "info", timeout: 3000 });
       else notify({ title: "Couldn't copy the link", body: r.stderr || "pbcopy failed", level: "error", timeout: 5000 });
@@ -830,6 +830,8 @@ export class ThanosView {
           p.hidden = solo ? new Set() : new Set(others);
           cx.notify();
         },
+        onAll: (cx) => { p.hidden = new Set(); cx.notify(); },
+        onNone: (cx) => { p.hidden = new Set(p.list.slice(0, MAX_DRAWN).map((s) => s.name)); cx.notify(); },
       }),
     ];
   }
