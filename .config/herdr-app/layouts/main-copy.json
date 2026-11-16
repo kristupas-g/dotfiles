@@ -5,7 +5,7 @@
     "version": "0.1.15"
   },
   "type": "row",
-  "theme": "misty-mountains",
+  "theme": "fae-glen",
   "ui_font": "Iowan Old Style",
   "font": "Iosevka Nerd Font Mono",
   "font_size": 15,
@@ -73,15 +73,11 @@
           "id": "sidebar-footer",
           "type": "block",
           "content": {
-            "mod": "workspace-chrome",
-            "props": {
-              "footer": true
-            }
+            "mod": "glade"
           },
           "size": {
-            "px": 69
-          },
-          "hidden": true
+            "px": 120
+          }
         }
       ],
       "size": {

@@ -26,6 +26,7 @@ kind-clusters/
 !.config/herdr-app/themes/
 .config/herdr-app/themes/*
 !.config/herdr-app/themes/misty-mountains.json
+!.config/herdr-app/themes/fae-glen.json
 !.config/herdr-app/data/
 .config/herdr-app/data/*
 !.config/herdr-app/data/herdr-chat/
@@ -34,6 +35,9 @@ kind-clusters/
 !.config/herdr-app/data/herdr-chat/settings.json
 !.config/herdr-app/mods/
 .config/herdr-app/mods/*
+!.config/herdr-app/mods/glade/
+.config/herdr-app/mods/glade/jsconfig.json
+.config/herdr-app/mods/glade/*.d.ts
 !.config/herdr-app/mods/space-tabs/
 .config/herdr-app/mods/space-tabs/jsconfig.json
 .config/herdr-app/mods/space-tabs/*.d.ts
