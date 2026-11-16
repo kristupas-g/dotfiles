@@ -149,8 +149,9 @@ export class ThanosView {
     cx.timer.after(60, (cx) => { const n = copy.input.value().length; copy.input.set_selected_range({ start: n, end: n }); cx.notify(); });
   }
 
-  remove(p, cx) {
+  remove(p, cx, ask = true) {
     const i = this.panels.indexOf(p);
+    if (i < 0) return;
     const go = (cx) => {
       p.gen++;
       this.panels.splice(i, 1);
@@ -160,7 +161,7 @@ export class ThanosView {
       this.rename();
       cx.notify();
     };
-    if (!p.expr.trim() && !p.ran) return go(cx);
+    if (!ask || (!p.expr.trim() && !p.ran)) return go(cx);
     this.confirm = { text: `Remove panel ${i + 1} (${short(p.expr.trim() || "empty", 40)})?`, fn: go };
     cx.notify();
   }
@@ -622,7 +623,7 @@ export class ThanosView {
       .cursor_pointer()
       .hover((s) => s.text_color(t.foreground).bg(t.hover))
       .tooltip(tip)
-      .on_click((_e, cx) => { cx.stop_propagation(); onClick(cx); })
+      .on_click((_e, cx) => { cx.stop_propagation(); if (!this.typing) this.handle.focus(); onClick(cx); })
       .child(spin ? svg("mods/workspace-chrome/spinner.svg").size(14).spin(900) : svg(icon).size(14))
       .when(Boolean(label), (el) => el.child(div().text_size(11.5).child(label)));
   }
@@ -870,7 +871,10 @@ export class ThanosView {
           .child(div().w(20).flex_none().text_size(11.5).font_medium().text_color(on ? t.accent : t.dim).child(`${i + 1}`))
           .child(
             // The box is the popup's trigger: the suggestions hang under it, in a layer above the charts.
+            // Keys are handled here, on the box: with the list open the popup
+            // layer takes ↑/↓ itself before they would reach the root.
             Popup.new(`${p.id}-popup`, div().w_full().h(28).px(8).rounded(6).border_1().border_color(this.typing === p.id ? t.accent : t.border).bg(t.background).flex().items_center()
+              .on_key_down((e, cx) => this.key(e, cx))
               .child(Input.new(p.input).flex_1().h_full().text_size(12.5).font_family(mono).text_color(t.foreground)))
               .anchor("top_left")
               .flex_1()
@@ -881,7 +885,7 @@ export class ThanosView {
           .child(this.iconButton(t, `${p.id}-mode`, `${ICON}table.svg`, p.mode === "graph" ? "Show as a table: an instant query at the end of the range (t)" : "Show as a graph: a range query (t)", (cx) => this.toggleMode(p, cx), { on: p.mode === "table" }))
           .child(this.iconButton(t, `${p.id}-labels`, `${ICON}tag.svg`, "The result's labels and values, to narrow the query (l)", (cx) => { p.labelsOpen = !p.labelsOpen; cx.notify(); }, { on: p.labelsOpen }))
           .child(this.iconButton(t, `${p.id}-dup`, `${ICON}copy.svg`, "Duplicate this panel under it, to alter the query (d)", (cx) => this.duplicate(p, cx)))
-          .child(this.iconButton(t, `${p.id}-x`, "mods/workspace-chrome/x.svg", "Remove this panel (x)", (cx) => this.remove(p, cx))),
+          .child(this.iconButton(t, `${p.id}-x`, "mods/workspace-chrome/x.svg", "Remove this panel (x asks first)", (cx) => this.remove(p, cx, false))),
       )
       .child(div().text_size(11).text_color(st[1]).truncate().child(st[0]))
       .when(p.mode === "graph" && Boolean(p.ran) && p.list.length > 0, (el) => el.children(this.graph(t, p)))
