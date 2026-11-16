@@ -17,6 +17,7 @@ import { v_flex, h_flex, InputState, Input, Popup, ScrollHandle, VirtualListScro
 import { exec, focused, nextCommand, notify, panes, run, setShared, settings, shared, spaces, theme } from "herdr";
 import * as fs from "fs/promises";
 import * as T from "./thanos.js";
+import { tokens } from "./promql.js";
 import { chart, legend, drawable, MAX_DRAWN } from "./chart.js";
 
 const EVERY = 60_000;
@@ -26,6 +27,10 @@ const ROW = 24;
 const PICK_ROW = 28;
 export const TAB = "thanos";
 const ICON = "mods/thanos/icons/";
+const BOX_PAD = 8;
+// Calibrated against the Input's own text inset and glyph width at 12.5 px (JetBrains Mono).
+const INPUT_PAD = 0;
+const CHAR_W = 7.5;
 
 const short = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -33,6 +38,8 @@ export class ThanosView {
   init(p, cx) {
     this.panels = [];
     this.range = T.seconds(p.range) ? p.range : "1h";
+    // An absolute window { from, to } (seconds) when one was pasted or typed; null means "last <range>, ending now".
+    this.span = p.from && p.to ? { from: Number(p.from), to: Number(p.to) } : null;
     this.hoverT = null;
     this.norm = false;
     this.overlay = false;
@@ -68,7 +75,7 @@ export class ThanosView {
     const exprs = Array.isArray(p.queries) && p.queries.length ? p.queries.map(String) : [String(p.query ?? "")];
     for (const e of exprs) this.addPanel(e, cx, false);
     this.focusAt = 0;
-    cx.timer.every(EVERY, (cx) => { if (this.auto && !this.typing && !this.picker) this.runAll(cx); });
+    cx.timer.every(EVERY, (cx) => { if (this.auto && !this.span && !this.typing && !this.picker) this.runAll(cx); });
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -79,6 +86,7 @@ export class ThanosView {
     this.configErr = null;
     this.ready = T.loadConfig().then((c) => { this.configErr = c.error; return c; });
     cx.spawn(async (cx) => { await this.ready; cx.notify(); });
+    cx.timer.after(300, () => this.myTab());
     cx.spawn(async (cx) => {
       const a = await T.loadAliases();
       this.aliases = a.aliases;
@@ -168,7 +176,9 @@ export class ThanosView {
     if (i < 0) return;
     const go = (cx) => {
       p.gen++;
+      p.loading = false;
       this.panels.splice(i, 1);
+      this.busySignal();
       if (!this.panels.length) this.addPanel("", cx, true);
       this.focusAt = Math.max(0, Math.min(this.focusAt, this.panels.length - 1));
       if (this.comp?.panel === p) this.comp = null;
@@ -241,7 +251,7 @@ export class ThanosView {
       return { count: pts.length, first: pts[0][1], last: pts[pts.length - 1][1], min, max, avg: sum / pts.length, first_t: pts[0][0], last_t: pts[pts.length - 1][0] };
     };
     const out = {
-      url: T.BASE, range: this.range, step: w.step, start: w.start, end: w.end, normalise: this.norm, overlay: this.overlay,
+      url: T.BASE, range: this.span ? T.duration(w.end - w.start) : this.range, fixed: Boolean(this.span), grafana: T.grafanaRange(this.span, this.range), step: w.step, start: w.start, end: w.end, normalise: this.norm, overlay: this.overlay,
       panels: this.panels.map((p, i) => ({
         index: i + 1, focused: i === this.focusAt, expr: p.expr, mode: p.mode, error: p.error, loading: p.loading,
         ran: p.ran ? { start: p.ran.start, end: p.ran.end, step: p.ran.step, ms: p.ran.ms, type: p.ran.type } : null,
@@ -261,10 +271,44 @@ export class ThanosView {
   // ---- running ----
 
   window() {
+    const points = Math.max(150, Math.min(600, Math.floor((this.width || 900) / 2)));
+    if (this.span) return { start: this.span.from, end: this.span.to, step: T.stepFor(this.span.to - this.span.from, points) };
     const end = Math.floor(Date.now() / 1000);
     const sec = T.seconds(this.range) ?? 3600;
-    const points = Math.max(150, Math.min(600, Math.floor((this.width || 900) / 2)));
     return { start: end - sec, end, step: T.stepFor(sec, points) };
+  }
+
+  /** The range as the header and the footer say it. */
+  rangeLabel() {
+    return this.span ? `${T.stamp(this.span.from).slice(5, 16)} → ${T.stamp(this.span.to).slice(5, 16)} · ${T.duration(this.span.to - this.span.from)}` : `last ${this.range}`;
+  }
+
+  // `C`: the range in Grafana's query form (from=…&to=…) to the clipboard.
+  copyRange(cx) {
+    const text = T.grafanaRange(this.span, this.range);
+    cx.spawn(async () => {
+      const r = await exec("/bin/sh", ["-c", 'printf "%s" "$1" | pbcopy', "sh", text], { timeout: 5000 }).catch((e) => ({ code: 1, stderr: String(e) }));
+      if (r.code === 0) notify({ title: "Range copied for Grafana", body: text, level: "info", timeout: 3000 });
+      else notify({ title: "Couldn't copy the range", body: r.stderr || "pbcopy failed", level: "error", timeout: 5000 });
+    });
+  }
+
+  // The tab this copy is in, for the tab bar's spinner (tabs-icons reads shared `thanos.busy`).
+  myTab() {
+    if (this.tab) return this.tab;
+    const tab = focused()?.tab;
+    if (tab && panes().some((x) => x.tab === tab && x.mod === "thanos")) this.tab = tab;
+    return this.tab;
+  }
+
+  busySignal() {
+    const tab = this.myTab();
+    if (!tab) return;
+    const n = this.panels.filter((x) => x.loading).length;
+    const all = { ...(shared("thanos.busy") ?? {}) };
+    if (n) all[tab] = n;
+    else delete all[tab];
+    if ((shared("thanos.busy") ?? {})[tab] !== all[tab]) setShared("thanos.busy", all);
   }
 
   runAll(cx) {
@@ -279,6 +323,7 @@ export class ThanosView {
     p.error = null;
     const w = this.window();
     this.remember(expr);
+    this.busySignal();
     cx.notify();
     cx.spawn(async (cx) => {
       await this.ready;
@@ -296,6 +341,7 @@ export class ThanosView {
       }
       p.loading = false;
       this.at = Date.now();
+      this.busySignal();
       this.rename();
       cx.notify();
     });
@@ -494,16 +540,21 @@ export class ThanosView {
   }
 
   pickItems() {
-    const q = this.pickText.trim().toLowerCase();
-    const items = T.RANGES.filter((r) => !q || r.includes(q)).map((r) => ({ id: r, label: r, hint: `${T.stepFor(T.seconds(r))}s step` }));
-    if (q && T.seconds(q) && !T.RANGES.includes(q)) items.unshift({ id: q, label: q, hint: "as typed", typed: true });
+    const raw = this.pickText.trim();
+    const q = raw.toLowerCase();
+    const parsed = raw ? T.parseRange(raw) : null;
+    const items = T.RANGES.filter((r) => !q || (!parsed && r.includes(q)) || (parsed?.kind === "relative" && r === parsed.range)).map((r) => ({ id: r, label: r, hint: `${T.stepFor(T.seconds(r))}s step` }));
+    if (parsed && parsed.kind === "absolute") items.unshift({ id: "typed", label: "typed", hint: parsed.label, parsed, typed: true });
+    else if (parsed && parsed.kind === "relative" && !T.RANGES.includes(parsed.range)) items.unshift({ id: parsed.range, label: parsed.range, hint: "as typed", typed: true });
+    else if (raw && !parsed) items.unshift({ id: "typed", label: "?", hint: "not a range: 30m, now-6h, from=…&to=… (a Grafana URL), 2026-11-16 14:00 to 2026-11-16 15:30", bad: true });
     return items;
   }
 
   choose(cx) {
     const it = this.pickItems()[this.pickAt];
-    if (!it) return;
-    this.range = it.id;
+    if (!it || it.bad) return;
+    if (it.parsed) this.span = { from: it.parsed.from, to: it.parsed.to };
+    else { this.range = it.id; this.span = null; }
     this.closePicker(cx);
     this.runAll(cx);
   }
@@ -517,9 +568,9 @@ export class ThanosView {
     cx.spawn(async () => {
       await this.ready;
       if (!T.BASE) return notify({ title: "No Thanos URL", body: this.configErr ?? "", level: "warning", timeout: 5000 });
-      const url = T.shareUrl(list, this.range, w.end, w.step);
+      const url = T.shareUrl(list, this.span ? T.duration(w.end - w.start) : this.range, w.end, w.step);
       const r = await exec("/bin/sh", ["-c", 'printf "%s" "$1" | pbcopy', "sh", url], { timeout: 5000 }).catch((e) => ({ code: 1, stderr: String(e) }));
-      if (r.code === 0) notify({ title: "Thanos link copied", body: `${list.length} ${list.length === 1 ? "query" : "queries"} over ${this.range}, ending now`, level: "info", timeout: 3000 });
+      if (r.code === 0) notify({ title: "Thanos link copied", body: `${list.length} ${list.length === 1 ? "query" : "queries"}, ${this.rangeLabel()}`, level: "info", timeout: 3000 });
       else notify({ title: "Couldn't copy the link", body: r.stderr || "pbcopy failed", level: "error", timeout: 5000 });
     });
   }
@@ -624,6 +675,7 @@ export class ThanosView {
     else if (k === "%" || (m.shift && k === "5")) this.norm = !this.norm;
     else if (k === "R" || (m.shift && k === "r")) this.openPicker("range", cx);
     else if (k === "a") this.auto = !this.auto;
+    else if (k === "C" || (m.shift && k === "c")) this.copyRange(cx);
     else if (k === "-" || k === "_") this.chartH = Math.max(120, this.chartH - 40);
     else if (k === "=" || k === "+") this.chartH = Math.min(600, this.chartH + 40);
     else if (/^[1-9]$/.test(k)) this.focusPanel(Number(k) - 1, cx);
@@ -697,7 +749,7 @@ export class ThanosView {
           .gap(8)
           .items_center()
           .child(svg(`${ICON}thanos.svg`).size(16).flex_none().text_color(t.accent))
-          .child(this.dropButton(t, "th-range", `last ${this.range}`, "Time range (R). Every panel uses it; ends now", (cx) => this.openPicker("range", cx)))
+          .child(this.dropButton(t, "th-range", this.rangeLabel(), this.span ? "A fixed window (R picks another; a relative one ends now and refreshes). C copies it for Grafana" : "Time range (R). Every panel uses it; ends now. C copies it for Grafana", (cx) => this.openPicker("range", cx)))
           .child(div().text_size(11).text_color(t.dim).child(`step ${w.step}s`))
           .child(this.iconButton(t, "th-refresh", `${ICON}refresh.svg`, `Run every panel again (r)${this.auto ? ` · auto every ${EVERY / 1000}s (a)` : " · auto-refresh is off (a)"}`, (cx) => this.runAll(cx), { spin: loading > 0 }))
           .child(this.iconButton(t, "th-auto", "mods/workspace-chrome/clock.svg", this.auto ? `Auto-refresh every ${EVERY / 1000} s is on (a turns it off)` : "Auto-refresh is off (a turns it on)", (cx) => { this.auto = !this.auto; cx.notify(); }, { on: this.auto }))
@@ -874,6 +926,42 @@ export class ThanosView {
       .when(items.length > 0, (el) => el.child(v_flex().id(`${p.id}-comp-list`).h(Math.min(300, items.length * PICK_ROW)).min_h(0).overflow_y_scrollbar().track_scroll(this.compScroll).children(items.map(row))));
   }
 
+  // The query box: an Input whose text is drawn transparent, with the same
+  // text laid over it as coloured spans (promql.js), in the same font, so the
+  // caret and selection are the input's and the colours are ours. The spans
+  // stay off when the text is wider than the box (the input would scroll).
+  queryBox(t, p, mono) {
+    const expr = p.input.value();
+    const fits = expr.length * CHAR_W <= (p.boxW || 1200) - 2 * BOX_PAD - 4;
+    const color = { string: t.ansi2, number: t.ansi3, duration: t.ansi3, keyword: t.ansi5, aggregator: t.ansi4, function: t.ansi4, label: t.ansi6, metric: t.foreground, operator: t.ansi1, punctuation: t.muted, space: t.foreground, other: t.foreground };
+    return div()
+      .id(`${p.id}-box`)
+      .relative()
+      .w_full()
+      .h(28)
+      .px(BOX_PAD)
+      .rounded(6)
+      .border_1()
+      .border_color(this.typing === p.id ? t.accent : t.border)
+      .bg(t.background)
+      .flex()
+      .items_center()
+      .on_size_change((sz) => { p.boxW = sz.width; })
+      .on_key_down((e, cx) => this.key(e, cx))
+      .child(Input.new(p.input).flex_1().h_full().text_size(12.5).font_family(mono).text_color(fits && expr ? t.background + "00" : t.foreground))
+      .when(fits && Boolean(expr), (el) => {
+        // Each span at its own x from the character count, not laid end to
+        // end: per-span widths round, and the drift grows along the line.
+        let at = 0;
+        const spans = tokens(expr).map((k, i) => {
+          const x = BOX_PAD + INPUT_PAD + at * CHAR_W;
+          at += k.text.length;
+          return k.kind === "space" ? null : div().absolute().top(0).left(x).h_full().flex().items_center().whitespace_nowrap().text_size(12.5).font_family(mono).text_color(color[k.kind] ?? t.foreground).child(k.text);
+        }).filter(Boolean);
+        return el.children(spans);
+      });
+  }
+
   card(t, p, i) {
     const on = i === this.focusAt;
     const mono = settings().font_family;
@@ -901,9 +989,7 @@ export class ThanosView {
             // The box is the popup's trigger: the suggestions hang under it, in a layer above the charts.
             // Keys are handled here, on the box: with the list open the popup
             // layer takes ↑/↓ itself before they would reach the root.
-            Popup.new(`${p.id}-popup`, div().w_full().h(28).px(8).rounded(6).border_1().border_color(this.typing === p.id ? t.accent : t.border).bg(t.background).flex().items_center()
-              .on_key_down((e, cx) => this.key(e, cx))
-              .child(Input.new(p.input).flex_1().h_full().text_size(12.5).font_family(mono).text_color(t.foreground)))
+            Popup.new(`${p.id}-popup`, this.queryBox(t, p, mono))
               .anchor("top_left")
               .flex_1()
               .min_w(0)
@@ -990,7 +1076,7 @@ export class ThanosView {
       .child(h_flex().h(28).px(8).rounded(6).border_1().border_color(t.border).bg(t.background).items_center()
         .child(Input.new(this.pick).flex_1().h_full().text_size(12.5).text_color(t.foreground)))
       .child(v_flex().id("th-pick-list").max_h(300).overflow_y_scrollbar().track_scroll(this.pickScroll).gap(1).children(items.map(row)))
-      .child(div().px(8).text_size(10.5).text_color(t.dim).child("↑↓ · Enter · a duration can be typed (45m, 4h, 3d)"));
+      .child(div().px(8).text_size(10.5).text_color(t.dim).child("↑↓ · Enter · type or paste: 45m · now-6h · a Grafana URL or from=…&to=… · 2026-11-16 14:00 to 2026-11-16 15:30 · a Thanos link"));
   }
 
   footer(t) {
@@ -1003,7 +1089,7 @@ export class ThanosView {
     } else if (this.typing) {
       hints = h_flex().gap(10).items_center().children([key("Tab", "complete"), key("↑↓", "pick"), key("↵", "run"), key("Esc", "leave the box"), key("alias args", "r5 metric label")]);
     } else {
-      hints = h_flex().gap(10).items_center().children([key("n", "new"), key("d", "duplicate"), key("x", "remove"), key("j/k", "panel"), key("↵", "edit"), key("r", "run all"), key("t", "table"), key("l", "labels"), key("R", "range"), key("o", "overlay"), key("%", "normalise"), key("-/=", "height"), key("⌘S", "link"), key("⇧⌘S", "shot")]);
+      hints = h_flex().gap(10).items_center().children([key("n", "new"), key("d", "duplicate"), key("x", "remove"), key("j/k", "panel"), key("↵", "edit"), key("r", "run all"), key("t", "table"), key("l", "labels"), key("R", "range"), key("C", "range→grafana"), key("o", "overlay"), key("%", "normalise"), key("-/=", "height"), key("⌘S", "link"), key("⇧⌘S", "shot")]);
     }
     const n = this.panels.length;
     return h_flex()
@@ -1015,7 +1101,7 @@ export class ThanosView {
       .border_t(1)
       .border_color(t.border)
       .child(div().flex_1().min_w(0).overflow_hidden().child(hints))
-      .child(div().flex_none().text_size(11).text_color(t.dim).child(`${n} ${n === 1 ? "panel" : "panels"} · ${this.range}${this.at ? ` · ran ${T.clock(Math.floor(this.at / 1000))}` : ""}`));
+      .child(div().flex_none().text_size(11).text_color(t.dim).child(`${n} ${n === 1 ? "panel" : "panels"} · ${this.rangeLabel()}${this.at ? ` · ran ${T.clock(Math.floor(this.at / 1000))}` : ""}`));
   }
 
   render() {

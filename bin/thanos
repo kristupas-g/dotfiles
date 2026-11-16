@@ -239,7 +239,7 @@ def cmd_tab(a):
         json.dump(data, sys.stdout, indent=2)
         print()
         return
-    print(f"range {data['range']} · step {data['step']}s · {stamp(data['start'])} → {stamp(data['end'])}{' · normalised' if data.get('normalise') else ''}{' · overlay' if data.get('overlay') else ''}")
+    print(f"range {data['range']}{' (fixed)' if data.get('fixed') else ''} · step {data['step']}s · {stamp(data['start'])} → {stamp(data['end'])} · grafana: {data.get('grafana', '')}{' · normalised' if data.get('normalise') else ''}{' · overlay' if data.get('overlay') else ''}")
     for p in data["panels"]:
         mark = "*" if p.get("focused") else " "
         head = f"{mark} panel {p['index']} [{p['mode']}] {p['expr'] or '(empty)'}"

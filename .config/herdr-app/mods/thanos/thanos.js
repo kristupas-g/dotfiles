@@ -44,6 +44,81 @@ export function seconds(range) {
 
 const STEPS = [15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400, 43200, 86400];
 
+/** A duration as Grafana writes it: 5400 → "1h30m", 86400 → "1d". */
+export function duration(sec) {
+  const parts = [];
+  for (const [u, n] of [["d", 86400], ["h", 3600], ["m", 60], ["s", 1]]) {
+    if (sec >= n) { parts.push(`${Math.floor(sec / n)}${u}`); sec %= n; }
+  }
+  return parts.join("") || "0s";
+}
+
+// "now", "now-6h", "now-1d/d" (the rounding is ignored), epoch seconds or
+// milliseconds, "2026-11-16 14:00[:00]" or ISO → seconds, or null.
+function moment(v, now) {
+  v = String(v).trim();
+  if (v === "now") return now;
+  let m = /^now-(\d+(?:\.\d+)?[smhdw])(?:\/[smhdwMy])?$/.exec(v);
+  if (m) return now - seconds(m[1]);
+  if (/^\d{13}$/.test(v)) return Math.floor(Number(v) / 1000);
+  if (/^\d{10}$/.test(v)) return Number(v);
+  m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?(Z|[+-]\d{2}:?\d{2})?$/.exec(v);
+  if (m) {
+    const [, Y, M, D, h = "0", mi = "0", sec = "0", tz] = m;
+    if (tz) return Math.floor(Date.parse(`${Y}-${M}-${D}T${h.padStart(2, "0")}:${mi}:${sec}${tz === "Z" ? "Z" : tz.includes(":") ? tz : `${tz.slice(0, 3)}:${tz.slice(3)}`}`) / 1000);
+    return Math.floor(new Date(Number(Y), Number(M) - 1, Number(D), Number(h), Number(mi), Number(sec)).getTime() / 1000);
+  }
+  return null;
+}
+
+/**
+ * What a typed or pasted range means:
+ *   "6h", "now-6h", "from=now-6h&to=now"      → { kind: "relative", range: "6h" }
+ *   "from=<ms>&to=<ms>", a Grafana URL with them, "2026-11-16 14:00 to 2026-11-16 15:30",
+ *   a Thanos /graph URL (g0.range_input + g0.end_input) → { kind: "absolute", from, to } (seconds)
+ * `label` is the human form; null when it isn't a range.
+ */
+export function parseRange(text, now = Math.floor(Date.now() / 1000)) {
+  const t = String(text ?? "").trim();
+  if (!t) return null;
+  const done = (r) => {
+    if (r.kind === "relative") return { ...r, label: `last ${r.range}` };
+    if (!(r.to > r.from)) return null;
+    return { ...r, label: `${stamp(r.from)} → ${stamp(r.to)} · ${duration(r.to - r.from)}` };
+  };
+  const q = (name) => { const m = new RegExp(`(?:^|[?&#\\s])${name}=([^&\\s]+)`).exec(t); return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null; };
+  // Grafana: from/to as query parameters (a whole URL, or just the pair)
+  const from = q("from"), to = q("to");
+  if (from !== null && to !== null) {
+    const rel = /^now-(\d+(?:\.\d+)?[smhdw])(?:\/[smhdwMy])?$/.exec(from);
+    if (rel && to.startsWith("now") && !to.includes("-")) return done({ kind: "relative", range: rel[1] });
+    const f = moment(from, now), e = moment(to, now);
+    return f !== null && e !== null ? done({ kind: "absolute", from: f, to: e }) : null;
+  }
+  // Thanos: g0.range_input and g0.end_input
+  const ri = q("g0\\.range_input"), ei = q("g0\\.end_input");
+  if (ri && seconds(ri)) {
+    const e = ei ? moment(ei, now) : now;
+    return e !== null ? done({ kind: "absolute", from: e - seconds(ri), to: e }) : null;
+  }
+  if (seconds(t)) return done({ kind: "relative", range: t });
+  const rel = /^now-(\d+(?:\.\d+)?[smhdw])$/.exec(t);
+  if (rel) return done({ kind: "relative", range: rel[1] });
+  // two moments: "A to B", "A, B", "A → B", "A .. B"
+  const two = /^(.+?)\s*(?:\sto\s|,|→|->|\.\.|;)\s*(.+)$/.exec(t);
+  if (two) {
+    const f = moment(two[1], now), e = moment(two[2], now);
+    if (f !== null && e !== null) return done({ kind: "absolute", from: f, to: e });
+  }
+  return null;
+}
+
+/** Grafana's query form of a range: `from=now-1h&to=now`, or epoch milliseconds. */
+export function grafanaRange(span, range) {
+  if (span) return `from=${span.from * 1000}&to=${span.to * 1000}`;
+  return `from=now-${range}&to=now`;
+}
+
 /** A step that gives about `points` samples over `sec` seconds, on a round value. */
 export function stepFor(sec, points = 300) {
   const want = sec / points;
